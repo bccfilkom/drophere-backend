@@ -18,13 +18,22 @@ type authenticator interface {
 type Resolver struct {
 	links         []Link
 	lastLinkID    int
+	linkSvc       domain.LinkService
 	userSvc       domain.UserService
 	authenticator authenticator
 }
 
 // NewResolver func
-func NewResolver(userSvc domain.UserService, authenticator authenticator) *Resolver {
-	return &Resolver{userSvc: userSvc, authenticator: authenticator}
+func NewResolver(
+	userSvc domain.UserService,
+	authenticator authenticator,
+	linkSvc domain.LinkService,
+) *Resolver {
+	return &Resolver{
+		linkSvc:       linkSvc,
+		userSvc:       userSvc,
+		authenticator: authenticator,
+	}
 }
 
 func (r *Resolver) searchLink(ID int) (idx int, found bool) {
@@ -89,38 +98,62 @@ func (r *mutationResolver) UpdateProfile(ctx context.Context, newName string) (*
 	return &Message{Message: "update profile: OK"}, nil
 }
 func (r *mutationResolver) CreateLink(ctx context.Context, title string, slug string, description *string, deadline *time.Time, password *string) (*Link, error) {
-	r.lastLinkID++
-	newLink := Link{
-		ID:          r.lastLinkID,
-		Title:       title,
-		IsProtected: false,
-		Slug:        &slug,
-		Description: description,
-		Deadline:    deadline,
-	}
-	r.links = append(r.links, newLink)
-	return &newLink, nil
-}
-func (r *mutationResolver) UpdateLink(ctx context.Context, linkID int, title string, slug string, description *string, deadline *time.Time, password *string) (*Message, error) {
-	linkIdx, found := r.searchLink(linkID)
-	if !found {
-		return &Message{Message: "Link not found"}, nil
+	user := r.authenticator.GetAuthenticatedUser(ctx)
+	if user == nil {
+		return nil, errors.New("access denied")
 	}
 
-	r.links[linkIdx].Title = title
-	r.links[linkIdx].Slug = &slug
-	r.links[linkIdx].Description = description
-	r.links[linkIdx].Deadline = deadline
+	desc := ""
+	if description != nil {
+		desc = *description
+	}
+
+	l, err := r.linkSvc.CreateLink(title, slug, desc, user)
+	if err != nil {
+		return nil, err
+	}
+
+	return &Link{
+		ID:          int(l.ID),
+		Title:       l.Title,
+		IsProtected: l.IsProtected(),
+		Slug:        &l.Slug,
+		Description: &l.Description,
+		Deadline:    l.Deadline,
+	}, nil
+}
+func (r *mutationResolver) UpdateLink(ctx context.Context, linkID int, title string, slug string, description *string, deadline *time.Time, password *string) (*Message, error) {
+	user := r.authenticator.GetAuthenticatedUser(ctx)
+	if user == nil {
+		return nil, errors.New("access denied")
+	}
+
+	_, err := r.linkSvc.UpdateLink(
+		uint(linkID),
+		title,
+		slug,
+		description,
+		deadline,
+		password,
+	)
+
+	if err != nil {
+		return nil, err
+	}
 
 	return &Message{Message: "Link Updated!"}, nil
 }
 func (r *mutationResolver) DeleteLink(ctx context.Context, linkID int) (*Message, error) {
-	linkIdx, found := r.searchLink(linkID)
-	if !found {
-		return &Message{Message: "Link not found"}, nil
+	user := r.authenticator.GetAuthenticatedUser(ctx)
+	if user == nil {
+		return nil, errors.New("access denied")
 	}
 
-	r.links = append(r.links[:linkIdx], r.links[linkIdx+1:]...)
+	err := r.linkSvc.DeleteLink(uint(linkID))
+	if err != nil {
+		return nil, err
+	}
+
 	return &Message{Message: "Link Deleted!"}, nil
 }
 func (r *mutationResolver) CheckLinkPassword(ctx context.Context, linkID int, password string) (*Message, error) {

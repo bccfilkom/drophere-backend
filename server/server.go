@@ -8,6 +8,7 @@ import (
 
 	"github.com/99designs/gqlgen/handler"
 	drophere_go "github.com/bccfilkom/drophere-go"
+	"github.com/bccfilkom/drophere-go/domain/link"
 	"github.com/bccfilkom/drophere-go/domain/user"
 	"github.com/bccfilkom/drophere-go/infrastructure/auth"
 	"github.com/bccfilkom/drophere-go/infrastructure/database/mysql"
@@ -46,6 +47,7 @@ func main() {
 
 	// initialize repositories
 	userRepo := mysql.NewUserRepository(db)
+	linkRepo := mysql.NewLinkRepository(db)
 
 	// initialize infrastructures
 	authenticator := auth.NewJWT(
@@ -57,8 +59,9 @@ func main() {
 
 	// initialize services
 	userSvc := user.NewService(userRepo, authenticator)
+	linkSvc := link.NewService(linkRepo)
 
-	resolver := drophere_go.NewResolver(userSvc, authenticator)
+	resolver := drophere_go.NewResolver(userSvc, authenticator, linkSvc)
 
 	// setup router
 	router := chi.NewRouter()

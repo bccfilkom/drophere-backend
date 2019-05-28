@@ -1,7 +1,9 @@
 package link_test
 
 import (
+	"reflect"
 	"testing"
+	"time"
 
 	"github.com/bccfilkom/drophere-go/domain"
 	"github.com/bccfilkom/drophere-go/domain/link"
@@ -11,6 +13,14 @@ import (
 func newRepo() (domain.LinkRepository, domain.UserRepository) {
 	memdb := inmemory.New()
 	return inmemory.NewLinkRepository(memdb), inmemory.NewUserRepository(memdb)
+}
+
+func str2ptr(s string) *string {
+	return &s
+}
+
+func time2ptr(t time.Time) *time.Time {
+	return &t
 }
 
 func TestCreateLink(t *testing.T) {
@@ -47,6 +57,100 @@ func TestCreateLink(t *testing.T) {
 
 	for i, tc := range tests {
 		_, gotErr := linkSvc.CreateLink(tc.title, tc.slug, tc.description, tc.user)
+		if gotErr != tc.wantErr {
+			t.Fatalf("test %d: expected: %v, got: %v", i, tc.wantErr, gotErr)
+		}
+	}
+
+}
+
+func TestUpdateLink(t *testing.T) {
+	type test struct {
+		linkID      uint
+		title       string
+		slug        string
+		description *string
+		deadline    *time.Time
+		password    *string
+		wantLink    *domain.Link
+		wantErr     error
+	}
+
+	linkRepo, userRepo := newRepo()
+	user, _ := userRepo.FindByID(1)
+
+	tests := []test{
+		{
+			linkID:  123,
+			title:   "Drop file here",
+			slug:    "drop-here",
+			wantErr: domain.ErrLinkNotFound,
+		},
+		{
+			linkID:  100,
+			title:   "Drop file here",
+			slug:    "drop-here",
+			wantErr: domain.ErrLinkDuplicatedSlug,
+		},
+		{
+			linkID:      1,
+			title:       "Drop CV 2",
+			slug:        "yoursummerintern2",
+			description: str2ptr("Drop your CV for summer internship 2019"),
+			deadline:    time2ptr(time.Date(2019, 1, 2, 3, 0, 0, 0, time.Local)),
+			password:    str2ptr("123098"),
+			wantErr:     nil,
+			wantLink: &domain.Link{
+				ID:          1,
+				Title:       "Drop CV 2",
+				Slug:        "yoursummerintern2",
+				Description: "Drop your CV for summer internship 2019",
+				Deadline:    time2ptr(time.Date(2019, 1, 2, 3, 0, 0, 0, time.Local)),
+				Password:    "123098",
+				UserID:      user.ID,
+				User:        user,
+			},
+		},
+	}
+
+	linkSvc := link.NewService(linkRepo)
+
+	for i, tc := range tests {
+		gotLink, gotErr := linkSvc.UpdateLink(tc.linkID, tc.title, tc.slug, tc.description, tc.deadline, tc.password)
+		if gotErr != tc.wantErr {
+			t.Fatalf("test %d: expected: %v, got: %v", i, tc.wantErr, gotErr)
+		}
+
+		if !reflect.DeepEqual(gotLink, tc.wantLink) {
+			t.Fatalf("test %d: expected: %v, got: %v", i, tc.wantLink, gotLink)
+		}
+	}
+
+}
+
+func TestDeleteLink(t *testing.T) {
+	type test struct {
+		linkID  uint
+		wantErr error
+	}
+
+	linkRepo, _ := newRepo()
+
+	tests := []test{
+		{
+			linkID:  123,
+			wantErr: domain.ErrLinkNotFound,
+		},
+		{
+			linkID:  1,
+			wantErr: nil,
+		},
+	}
+
+	linkSvc := link.NewService(linkRepo)
+
+	for i, tc := range tests {
+		gotErr := linkSvc.DeleteLink(tc.linkID)
 		if gotErr != tc.wantErr {
 			t.Fatalf("test %d: expected: %v, got: %v", i, tc.wantErr, gotErr)
 		}

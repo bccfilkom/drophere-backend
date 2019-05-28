@@ -20,7 +20,7 @@ type Link struct {
 	Title       string
 	Password    string
 	Slug        string
-	Deadline    time.Time
+	Deadline    *time.Time
 	Description string
 }
 
@@ -43,10 +43,15 @@ func (l *Link) VerifyPassword(plainPwd string) bool {
 // LinkService abstraction
 type LinkService interface {
 	CreateLink(title, slug, description string, user *User) (*Link, error)
+	UpdateLink(id uint, title, slug string, description *string, deadline *time.Time, password *string) (*Link, error)
+	DeleteLink(id uint) error
 }
 
 // LinkRepository abstraction
 type LinkRepository interface {
 	Create(l *Link) (*Link, error)
+	Delete(l *Link) error
+	FindByID(id uint) (*Link, error)
 	FindBySlug(slug string) (*Link, error)
+	Update(l *Link) (*Link, error)
 }

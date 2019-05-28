@@ -15,7 +15,7 @@ CREATE TABLE `links` (
  `password` varchar(255) NOT NULL,
  `slug` varchar(255) NOT NULL,
  `description` text CHARACTER SET utf8mb4 NOT NULL,
- `deadline` datetime NOT NULL,
+ `deadline` datetime NULL DEFAULT NULL,
  PRIMARY KEY (`id`),
  UNIQUE KEY `slug` (`slug`),
  KEY `links_user_id_users_id_foreign` (`user_id`),
