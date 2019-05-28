@@ -30,6 +30,16 @@ func (db *DB) FindUserByEmail(email string) (*domain.User, error) {
 	return nil, domain.ErrUserNotFound
 }
 
+// FindUserByID func
+func (db *DB) FindUserByID(id uint) (*domain.User, error) {
+	for i, u := range db.users {
+		if u.ID == id {
+			return &db.users[i], nil
+		}
+	}
+	return nil, domain.ErrUserNotFound
+}
+
 // CreateUser func
 func (db *DB) CreateUser(u *domain.User) (*domain.User, error) {
 	db.users = append(db.users, *u)

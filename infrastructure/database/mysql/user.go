@@ -34,3 +34,15 @@ func (repo *userRepository) FindByEmail(email string) (*domain.User, error) {
 	}
 	return &user, nil
 }
+
+// FindByID implementation
+func (repo *userRepository) FindByID(id uint) (*domain.User, error) {
+	user := domain.User{}
+	if q := repo.db.
+		Find(&user, id); q.RecordNotFound() {
+		return nil, domain.ErrUserNotFound
+	} else if q.Error != nil {
+		return nil, q.Error
+	}
+	return &user, nil
+}

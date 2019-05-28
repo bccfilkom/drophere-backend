@@ -20,3 +20,8 @@ func (repo *userRepository) Create(user *domain.User) (*domain.User, error) {
 func (repo *userRepository) FindByEmail(email string) (*domain.User, error) {
 	return repo.db.FindUserByEmail(email)
 }
+
+// FindByID implementation
+func (repo *userRepository) FindByID(id uint) (*domain.User, error) {
+	return repo.db.FindUserByID(id)
+}

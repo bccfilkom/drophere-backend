@@ -12,6 +12,7 @@ import (
 	"github.com/bccfilkom/drophere-go/infrastructure/auth"
 	"github.com/bccfilkom/drophere-go/infrastructure/database/mysql"
 
+	"github.com/go-chi/chi"
 	"github.com/spf13/viper"
 
 	_ "github.com/go-sql-driver/mysql"
@@ -26,7 +27,7 @@ func main() {
 
 	err := viper.ReadInConfig()
 	if err != nil {
-		panic(fmt.Errorf("Fatal error config file: %s", err))
+		panic(fmt.Errorf("config: %s", err))
 	}
 
 	viper.SetEnvPrefix("DROPHERE")
@@ -42,19 +43,32 @@ func main() {
 	if err != nil {
 		panic(err)
 	}
+
+	// initialize repositories
+	userRepo := mysql.NewUserRepository(db)
+
+	// initialize infrastructures
 	authenticator := auth.NewJWT(
 		viper.GetString("jwt.secret"),
-		time.Duration(viper.GetInt("jwt.duration")),
+		time.Duration(viper.GetInt("jwt.duration"))*time.Hour,
 		viper.GetString("jwt.signingAlgorithm"),
+		userRepo,
 	)
-	userRepo := mysql.NewUserRepository(db)
+
+	// initialize services
 	userSvc := user.NewService(userRepo, authenticator)
 
-	resolver := drophere_go.NewResolver(userSvc)
+	resolver := drophere_go.NewResolver(userSvc, authenticator)
 
-	http.Handle("/", handler.Playground("GraphQL playground", "/query"))
-	http.Handle("/query", handler.GraphQL(drophere_go.NewExecutableSchema(drophere_go.Config{Resolvers: resolver})))
+	// setup router
+	router := chi.NewRouter()
+	router.Use(authenticator.Middleware())
+	router.Handle("/", handler.Playground("GraphQL playground", "/query"))
+	router.Handle("/query", handler.GraphQL(drophere_go.NewExecutableSchema(drophere_go.Config{Resolvers: resolver})))
 
 	log.Printf("connect to http://localhost:%s/ for GraphQL playground", port)
-	log.Fatal(http.ListenAndServe(":"+port, nil))
+	err = http.ListenAndServe(":"+port, router)
+	if err != nil {
+		log.Fatal(err)
+	}
 }

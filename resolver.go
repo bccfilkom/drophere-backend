@@ -10,15 +10,21 @@ import (
 	"github.com/bccfilkom/drophere-go/domain"
 ) // THIS CODE IS A STARTING POINT ONLY. IT WILL NOT BE UPDATED WITH SCHEMA CHANGES.
 
+type authenticator interface {
+	GetAuthenticatedUser(context.Context) *domain.User
+}
+
+// Resolver resolves given query from client
 type Resolver struct {
-	links      []Link
-	lastLinkID int
-	userSvc    domain.UserService
+	links         []Link
+	lastLinkID    int
+	userSvc       domain.UserService
+	authenticator authenticator
 }
 
 // NewResolver func
-func NewResolver(userSvc domain.UserService) *Resolver {
-	return &Resolver{userSvc: userSvc}
+func NewResolver(userSvc domain.UserService, authenticator authenticator) *Resolver {
+	return &Resolver{userSvc: userSvc, authenticator: authenticator}
 }
 
 func (r *Resolver) searchLink(ID int) (idx int, found bool) {
@@ -45,9 +51,12 @@ func (r *Resolver) searchLinkSlug(slug string) (idx int, found bool) {
 	return
 }
 
+// Mutation returns a group of resolvers for mutation query
 func (r *Resolver) Mutation() MutationResolver {
 	return &mutationResolver{r}
 }
+
+// Query returns a group of resolvers for query
 func (r *Resolver) Query() QueryResolver {
 	return &queryResolver{r}
 }
@@ -128,9 +137,14 @@ func (r *queryResolver) Links(ctx context.Context) ([]*Link, error) {
 	return links, nil
 }
 func (r *queryResolver) Me(ctx context.Context) (*User, error) {
+	user := r.authenticator.GetAuthenticatedUser(ctx)
+	if user == nil {
+		return nil, errors.New("access denied")
+	}
 	return &User{
-		ID:    1,
-		Email: "stub@bcc.filkom.ub.ac.id",
+		ID:    int(user.ID),
+		Email: user.Email,
+		Name:  user.Name,
 	}, nil
 }
 func (r *queryResolver) Link(ctx context.Context, slug string) (*Link, error) {

@@ -50,6 +50,7 @@ type UserService interface {
 type UserRepository interface {
 	Create(u *User) (*User, error)
 	FindByEmail(email string) (*User, error)
+	FindByID(id uint) (*User, error)
 }
 
 // Authenticator is external authentication service
