@@ -8,6 +8,7 @@ import (
 	"errors"
 	"strconv"
 	"sync"
+	"time"
 
 	"github.com/99designs/gqlgen/graphql"
 	"github.com/99designs/gqlgen/graphql/introspection"
@@ -56,13 +57,13 @@ type ComplexityRoot struct {
 
 	Mutation struct {
 		CheckLinkPassword func(childComplexity int, linkID int, password string) int
-		CreateLink        func(childComplexity int, title string, slug string, description *string, deadline *string, password *string) int
+		CreateLink        func(childComplexity int, title string, slug string, description *string, deadline *time.Time, password *string) int
 		DeleteLink        func(childComplexity int, linkID int) int
-		Login             func(childComplexity int, username string, password string) int
-		Register          func(childComplexity int, username string, email string, password string) int
-		UpdateLink        func(childComplexity int, linkID int, title string, slug string, description *string, deadline *string, password *string) int
+		Login             func(childComplexity int, email string, password string) int
+		Register          func(childComplexity int, email string, password string, name string) int
+		UpdateLink        func(childComplexity int, linkID int, title string, slug string, description *string, deadline *time.Time, password *string) int
 		UpdatePassword    func(childComplexity int, oldPassword string, newPassword string) int
-		UpdateProfile     func(childComplexity int, newEmail string) int
+		UpdateProfile     func(childComplexity int, newName string) int
 	}
 
 	Query struct {
@@ -81,17 +82,17 @@ type ComplexityRoot struct {
 		Dropboxemail  func(childComplexity int) int
 		Email         func(childComplexity int) int
 		ID            func(childComplexity int) int
-		Username      func(childComplexity int) int
+		Name          func(childComplexity int) int
 	}
 }
 
 type MutationResolver interface {
-	Register(ctx context.Context, username string, email string, password string) (*Token, error)
-	Login(ctx context.Context, username string, password string) (*Token, error)
+	Register(ctx context.Context, email string, password string, name string) (*Token, error)
+	Login(ctx context.Context, email string, password string) (*Token, error)
 	UpdatePassword(ctx context.Context, oldPassword string, newPassword string) (*Message, error)
-	UpdateProfile(ctx context.Context, newEmail string) (*Message, error)
-	CreateLink(ctx context.Context, title string, slug string, description *string, deadline *string, password *string) (*Link, error)
-	UpdateLink(ctx context.Context, linkID int, title string, slug string, description *string, deadline *string, password *string) (*Message, error)
+	UpdateProfile(ctx context.Context, newName string) (*Message, error)
+	CreateLink(ctx context.Context, title string, slug string, description *string, deadline *time.Time, password *string) (*Link, error)
+	UpdateLink(ctx context.Context, linkID int, title string, slug string, description *string, deadline *time.Time, password *string) (*Message, error)
 	DeleteLink(ctx context.Context, linkID int) (*Message, error)
 	CheckLinkPassword(ctx context.Context, linkID int, password string) (*Message, error)
 }
@@ -187,7 +188,7 @@ func (e *executableSchema) Complexity(typeName, field string, childComplexity in
 			return 0, false
 		}
 
-		return e.complexity.Mutation.CreateLink(childComplexity, args["title"].(string), args["slug"].(string), args["description"].(*string), args["deadline"].(*string), args["password"].(*string)), true
+		return e.complexity.Mutation.CreateLink(childComplexity, args["title"].(string), args["slug"].(string), args["description"].(*string), args["deadline"].(*time.Time), args["password"].(*string)), true
 
 	case "Mutation.deleteLink":
 		if e.complexity.Mutation.DeleteLink == nil {
@@ -211,7 +212,7 @@ func (e *executableSchema) Complexity(typeName, field string, childComplexity in
 			return 0, false
 		}
 
-		return e.complexity.Mutation.Login(childComplexity, args["username"].(string), args["password"].(string)), true
+		return e.complexity.Mutation.Login(childComplexity, args["email"].(string), args["password"].(string)), true
 
 	case "Mutation.register":
 		if e.complexity.Mutation.Register == nil {
@@ -223,7 +224,7 @@ func (e *executableSchema) Complexity(typeName, field string, childComplexity in
 			return 0, false
 		}
 
-		return e.complexity.Mutation.Register(childComplexity, args["username"].(string), args["email"].(string), args["password"].(string)), true
+		return e.complexity.Mutation.Register(childComplexity, args["email"].(string), args["password"].(string), args["name"].(string)), true
 
 	case "Mutation.updateLink":
 		if e.complexity.Mutation.UpdateLink == nil {
@@ -235,7 +236,7 @@ func (e *executableSchema) Complexity(typeName, field string, childComplexity in
 			return 0, false
 		}
 
-		return e.complexity.Mutation.UpdateLink(childComplexity, args["linkId"].(int), args["title"].(string), args["slug"].(string), args["description"].(*string), args["deadline"].(*string), args["password"].(*string)), true
+		return e.complexity.Mutation.UpdateLink(childComplexity, args["linkId"].(int), args["title"].(string), args["slug"].(string), args["description"].(*string), args["deadline"].(*time.Time), args["password"].(*string)), true
 
 	case "Mutation.updatePassword":
 		if e.complexity.Mutation.UpdatePassword == nil {
@@ -259,7 +260,7 @@ func (e *executableSchema) Complexity(typeName, field string, childComplexity in
 			return 0, false
 		}
 
-		return e.complexity.Mutation.UpdateProfile(childComplexity, args["newEmail"].(string)), true
+		return e.complexity.Mutation.UpdateProfile(childComplexity, args["newName"].(string)), true
 
 	case "Query.link":
 		if e.complexity.Query.Link == nil {
@@ -329,12 +330,12 @@ func (e *executableSchema) Complexity(typeName, field string, childComplexity in
 
 		return e.complexity.User.ID(childComplexity), true
 
-	case "User.username":
-		if e.complexity.User.Username == nil {
+	case "User.name":
+		if e.complexity.User.Name == nil {
 			break
 		}
 
-		return e.complexity.User.Username(childComplexity), true
+		return e.complexity.User.Name(childComplexity), true
 
 	}
 	return 0, false
@@ -413,12 +414,12 @@ func (ec *executionContext) introspectType(name string) (*introspection.Type, er
 }
 
 var parsedSchema = gqlparser.MustLoadSchema(
-	&ast.Source{Name: "schema.graphql", Input: `scalar Date
+	&ast.Source{Name: "schema.graphql", Input: `scalar Time
 
 type User {
   id: Int!
-  username: String!
   email: String!
+  name: String!
   dropboxauth: Boolean
   dropboxemail: String
   dropboxavatar: String
@@ -432,7 +433,7 @@ type Link {
   isProtected: Boolean!
   slug: String
   description: String
-  deadline: Date
+  deadline: Time
 }
 type Message {
   message: String!
@@ -446,12 +447,12 @@ type Query {
 }
 type Mutation {
   # Register new user
-  register(username: String!, email: String!, password: String!): Token
-  login(username: String!, password: String!): Token
+  register(email: String!, password: String!, name: String!): Token
+  login(email: String!, password: String!): Token
   updatePassword(oldPassword: String!, newPassword: String!): Message
-  updateProfile(newEmail: String!): Message
-  createLink(title:  String!,slug: String!, description: String, deadline: Date, password: String): Link
-  updateLink(linkId: Int!, title:  String!, slug: String!, description: String, deadline: Date, password: String): Message
+  updateProfile(newName: String!): Message
+  createLink(title:  String!,slug: String!, description: String, deadline: Time, password: String): Link
+  updateLink(linkId: Int!, title:  String!, slug: String!, description: String, deadline: Time, password: String): Message
   deleteLink(linkId: Int!): Message
   checkLinkPassword(linkId: Int!, password: String!): Message
 }
@@ -512,9 +513,9 @@ func (ec *executionContext) field_Mutation_createLink_args(ctx context.Context, 
 		}
 	}
 	args["description"] = arg2
-	var arg3 *string
+	var arg3 *time.Time
 	if tmp, ok := rawArgs["deadline"]; ok {
-		arg3, err = ec.unmarshalODate2ᚖstring(ctx, tmp)
+		arg3, err = ec.unmarshalOTime2ᚖtimeᚐTime(ctx, tmp)
 		if err != nil {
 			return nil, err
 		}
@@ -549,13 +550,13 @@ func (ec *executionContext) field_Mutation_login_args(ctx context.Context, rawAr
 	var err error
 	args := map[string]interface{}{}
 	var arg0 string
-	if tmp, ok := rawArgs["username"]; ok {
+	if tmp, ok := rawArgs["email"]; ok {
 		arg0, err = ec.unmarshalNString2string(ctx, tmp)
 		if err != nil {
 			return nil, err
 		}
 	}
-	args["username"] = arg0
+	args["email"] = arg0
 	var arg1 string
 	if tmp, ok := rawArgs["password"]; ok {
 		arg1, err = ec.unmarshalNString2string(ctx, tmp)
@@ -571,29 +572,29 @@ func (ec *executionContext) field_Mutation_register_args(ctx context.Context, ra
 	var err error
 	args := map[string]interface{}{}
 	var arg0 string
-	if tmp, ok := rawArgs["username"]; ok {
+	if tmp, ok := rawArgs["email"]; ok {
 		arg0, err = ec.unmarshalNString2string(ctx, tmp)
 		if err != nil {
 			return nil, err
 		}
 	}
-	args["username"] = arg0
+	args["email"] = arg0
 	var arg1 string
-	if tmp, ok := rawArgs["email"]; ok {
+	if tmp, ok := rawArgs["password"]; ok {
 		arg1, err = ec.unmarshalNString2string(ctx, tmp)
 		if err != nil {
 			return nil, err
 		}
 	}
-	args["email"] = arg1
+	args["password"] = arg1
 	var arg2 string
-	if tmp, ok := rawArgs["password"]; ok {
+	if tmp, ok := rawArgs["name"]; ok {
 		arg2, err = ec.unmarshalNString2string(ctx, tmp)
 		if err != nil {
 			return nil, err
 		}
 	}
-	args["password"] = arg2
+	args["name"] = arg2
 	return args, nil
 }
 
@@ -632,9 +633,9 @@ func (ec *executionContext) field_Mutation_updateLink_args(ctx context.Context, 
 		}
 	}
 	args["description"] = arg3
-	var arg4 *string
+	var arg4 *time.Time
 	if tmp, ok := rawArgs["deadline"]; ok {
-		arg4, err = ec.unmarshalODate2ᚖstring(ctx, tmp)
+		arg4, err = ec.unmarshalOTime2ᚖtimeᚐTime(ctx, tmp)
 		if err != nil {
 			return nil, err
 		}
@@ -677,13 +678,13 @@ func (ec *executionContext) field_Mutation_updateProfile_args(ctx context.Contex
 	var err error
 	args := map[string]interface{}{}
 	var arg0 string
-	if tmp, ok := rawArgs["newEmail"]; ok {
+	if tmp, ok := rawArgs["newName"]; ok {
 		arg0, err = ec.unmarshalNString2string(ctx, tmp)
 		if err != nil {
 			return nil, err
 		}
 	}
-	args["newEmail"] = arg0
+	args["newName"] = arg0
 	return args, nil
 }
 
@@ -894,10 +895,10 @@ func (ec *executionContext) _Link_deadline(ctx context.Context, field graphql.Co
 	if resTmp == nil {
 		return graphql.Null
 	}
-	res := resTmp.(*string)
+	res := resTmp.(*time.Time)
 	rctx.Result = res
 	ctx = ec.Tracer.StartFieldChildExecution(ctx)
-	return ec.marshalODate2ᚖstring(ctx, field.Selections, res)
+	return ec.marshalOTime2ᚖtimeᚐTime(ctx, field.Selections, res)
 }
 
 func (ec *executionContext) _Message_message(ctx context.Context, field graphql.CollectedField, obj *Message) graphql.Marshaler {
@@ -947,7 +948,7 @@ func (ec *executionContext) _Mutation_register(ctx context.Context, field graphq
 	ctx = ec.Tracer.StartFieldResolverExecution(ctx, rctx)
 	resTmp := ec.FieldMiddleware(ctx, nil, func(rctx context.Context) (interface{}, error) {
 		ctx = rctx // use context from middleware stack in children
-		return ec.resolvers.Mutation().Register(rctx, args["username"].(string), args["email"].(string), args["password"].(string))
+		return ec.resolvers.Mutation().Register(rctx, args["email"].(string), args["password"].(string), args["name"].(string))
 	})
 	if resTmp == nil {
 		return graphql.Null
@@ -955,7 +956,7 @@ func (ec *executionContext) _Mutation_register(ctx context.Context, field graphq
 	res := resTmp.(*Token)
 	rctx.Result = res
 	ctx = ec.Tracer.StartFieldChildExecution(ctx)
-	return ec.marshalOToken2ᚖgitlabᚗcomᚋgifarydhimasᚋdrophereᚑgoᚐToken(ctx, field.Selections, res)
+	return ec.marshalOToken2ᚖgithubᚗcomᚋbccfilkomᚋdrophereᚑgoᚐToken(ctx, field.Selections, res)
 }
 
 func (ec *executionContext) _Mutation_login(ctx context.Context, field graphql.CollectedField) graphql.Marshaler {
@@ -978,7 +979,7 @@ func (ec *executionContext) _Mutation_login(ctx context.Context, field graphql.C
 	ctx = ec.Tracer.StartFieldResolverExecution(ctx, rctx)
 	resTmp := ec.FieldMiddleware(ctx, nil, func(rctx context.Context) (interface{}, error) {
 		ctx = rctx // use context from middleware stack in children
-		return ec.resolvers.Mutation().Login(rctx, args["username"].(string), args["password"].(string))
+		return ec.resolvers.Mutation().Login(rctx, args["email"].(string), args["password"].(string))
 	})
 	if resTmp == nil {
 		return graphql.Null
@@ -986,7 +987,7 @@ func (ec *executionContext) _Mutation_login(ctx context.Context, field graphql.C
 	res := resTmp.(*Token)
 	rctx.Result = res
 	ctx = ec.Tracer.StartFieldChildExecution(ctx)
-	return ec.marshalOToken2ᚖgitlabᚗcomᚋgifarydhimasᚋdrophereᚑgoᚐToken(ctx, field.Selections, res)
+	return ec.marshalOToken2ᚖgithubᚗcomᚋbccfilkomᚋdrophereᚑgoᚐToken(ctx, field.Selections, res)
 }
 
 func (ec *executionContext) _Mutation_updatePassword(ctx context.Context, field graphql.CollectedField) graphql.Marshaler {
@@ -1017,7 +1018,7 @@ func (ec *executionContext) _Mutation_updatePassword(ctx context.Context, field 
 	res := resTmp.(*Message)
 	rctx.Result = res
 	ctx = ec.Tracer.StartFieldChildExecution(ctx)
-	return ec.marshalOMessage2ᚖgitlabᚗcomᚋgifarydhimasᚋdrophereᚑgoᚐMessage(ctx, field.Selections, res)
+	return ec.marshalOMessage2ᚖgithubᚗcomᚋbccfilkomᚋdrophereᚑgoᚐMessage(ctx, field.Selections, res)
 }
 
 func (ec *executionContext) _Mutation_updateProfile(ctx context.Context, field graphql.CollectedField) graphql.Marshaler {
@@ -1040,7 +1041,7 @@ func (ec *executionContext) _Mutation_updateProfile(ctx context.Context, field g
 	ctx = ec.Tracer.StartFieldResolverExecution(ctx, rctx)
 	resTmp := ec.FieldMiddleware(ctx, nil, func(rctx context.Context) (interface{}, error) {
 		ctx = rctx // use context from middleware stack in children
-		return ec.resolvers.Mutation().UpdateProfile(rctx, args["newEmail"].(string))
+		return ec.resolvers.Mutation().UpdateProfile(rctx, args["newName"].(string))
 	})
 	if resTmp == nil {
 		return graphql.Null
@@ -1048,7 +1049,7 @@ func (ec *executionContext) _Mutation_updateProfile(ctx context.Context, field g
 	res := resTmp.(*Message)
 	rctx.Result = res
 	ctx = ec.Tracer.StartFieldChildExecution(ctx)
-	return ec.marshalOMessage2ᚖgitlabᚗcomᚋgifarydhimasᚋdrophereᚑgoᚐMessage(ctx, field.Selections, res)
+	return ec.marshalOMessage2ᚖgithubᚗcomᚋbccfilkomᚋdrophereᚑgoᚐMessage(ctx, field.Selections, res)
 }
 
 func (ec *executionContext) _Mutation_createLink(ctx context.Context, field graphql.CollectedField) graphql.Marshaler {
@@ -1071,7 +1072,7 @@ func (ec *executionContext) _Mutation_createLink(ctx context.Context, field grap
 	ctx = ec.Tracer.StartFieldResolverExecution(ctx, rctx)
 	resTmp := ec.FieldMiddleware(ctx, nil, func(rctx context.Context) (interface{}, error) {
 		ctx = rctx // use context from middleware stack in children
-		return ec.resolvers.Mutation().CreateLink(rctx, args["title"].(string), args["slug"].(string), args["description"].(*string), args["deadline"].(*string), args["password"].(*string))
+		return ec.resolvers.Mutation().CreateLink(rctx, args["title"].(string), args["slug"].(string), args["description"].(*string), args["deadline"].(*time.Time), args["password"].(*string))
 	})
 	if resTmp == nil {
 		return graphql.Null
@@ -1079,7 +1080,7 @@ func (ec *executionContext) _Mutation_createLink(ctx context.Context, field grap
 	res := resTmp.(*Link)
 	rctx.Result = res
 	ctx = ec.Tracer.StartFieldChildExecution(ctx)
-	return ec.marshalOLink2ᚖgitlabᚗcomᚋgifarydhimasᚋdrophereᚑgoᚐLink(ctx, field.Selections, res)
+	return ec.marshalOLink2ᚖgithubᚗcomᚋbccfilkomᚋdrophereᚑgoᚐLink(ctx, field.Selections, res)
 }
 
 func (ec *executionContext) _Mutation_updateLink(ctx context.Context, field graphql.CollectedField) graphql.Marshaler {
@@ -1102,7 +1103,7 @@ func (ec *executionContext) _Mutation_updateLink(ctx context.Context, field grap
 	ctx = ec.Tracer.StartFieldResolverExecution(ctx, rctx)
 	resTmp := ec.FieldMiddleware(ctx, nil, func(rctx context.Context) (interface{}, error) {
 		ctx = rctx // use context from middleware stack in children
-		return ec.resolvers.Mutation().UpdateLink(rctx, args["linkId"].(int), args["title"].(string), args["slug"].(string), args["description"].(*string), args["deadline"].(*string), args["password"].(*string))
+		return ec.resolvers.Mutation().UpdateLink(rctx, args["linkId"].(int), args["title"].(string), args["slug"].(string), args["description"].(*string), args["deadline"].(*time.Time), args["password"].(*string))
 	})
 	if resTmp == nil {
 		return graphql.Null
@@ -1110,7 +1111,7 @@ func (ec *executionContext) _Mutation_updateLink(ctx context.Context, field grap
 	res := resTmp.(*Message)
 	rctx.Result = res
 	ctx = ec.Tracer.StartFieldChildExecution(ctx)
-	return ec.marshalOMessage2ᚖgitlabᚗcomᚋgifarydhimasᚋdrophereᚑgoᚐMessage(ctx, field.Selections, res)
+	return ec.marshalOMessage2ᚖgithubᚗcomᚋbccfilkomᚋdrophereᚑgoᚐMessage(ctx, field.Selections, res)
 }
 
 func (ec *executionContext) _Mutation_deleteLink(ctx context.Context, field graphql.CollectedField) graphql.Marshaler {
@@ -1141,7 +1142,7 @@ func (ec *executionContext) _Mutation_deleteLink(ctx context.Context, field grap
 	res := resTmp.(*Message)
 	rctx.Result = res
 	ctx = ec.Tracer.StartFieldChildExecution(ctx)
-	return ec.marshalOMessage2ᚖgitlabᚗcomᚋgifarydhimasᚋdrophereᚑgoᚐMessage(ctx, field.Selections, res)
+	return ec.marshalOMessage2ᚖgithubᚗcomᚋbccfilkomᚋdrophereᚑgoᚐMessage(ctx, field.Selections, res)
 }
 
 func (ec *executionContext) _Mutation_checkLinkPassword(ctx context.Context, field graphql.CollectedField) graphql.Marshaler {
@@ -1172,7 +1173,7 @@ func (ec *executionContext) _Mutation_checkLinkPassword(ctx context.Context, fie
 	res := resTmp.(*Message)
 	rctx.Result = res
 	ctx = ec.Tracer.StartFieldChildExecution(ctx)
-	return ec.marshalOMessage2ᚖgitlabᚗcomᚋgifarydhimasᚋdrophereᚑgoᚐMessage(ctx, field.Selections, res)
+	return ec.marshalOMessage2ᚖgithubᚗcomᚋbccfilkomᚋdrophereᚑgoᚐMessage(ctx, field.Selections, res)
 }
 
 func (ec *executionContext) _Query_links(ctx context.Context, field graphql.CollectedField) graphql.Marshaler {
@@ -1196,7 +1197,7 @@ func (ec *executionContext) _Query_links(ctx context.Context, field graphql.Coll
 	res := resTmp.([]*Link)
 	rctx.Result = res
 	ctx = ec.Tracer.StartFieldChildExecution(ctx)
-	return ec.marshalOLink2ᚕᚖgitlabᚗcomᚋgifarydhimasᚋdrophereᚑgoᚐLink(ctx, field.Selections, res)
+	return ec.marshalOLink2ᚕᚖgithubᚗcomᚋbccfilkomᚋdrophereᚑgoᚐLink(ctx, field.Selections, res)
 }
 
 func (ec *executionContext) _Query_me(ctx context.Context, field graphql.CollectedField) graphql.Marshaler {
@@ -1220,7 +1221,7 @@ func (ec *executionContext) _Query_me(ctx context.Context, field graphql.Collect
 	res := resTmp.(*User)
 	rctx.Result = res
 	ctx = ec.Tracer.StartFieldChildExecution(ctx)
-	return ec.marshalOUser2ᚖgitlabᚗcomᚋgifarydhimasᚋdrophereᚑgoᚐUser(ctx, field.Selections, res)
+	return ec.marshalOUser2ᚖgithubᚗcomᚋbccfilkomᚋdrophereᚑgoᚐUser(ctx, field.Selections, res)
 }
 
 func (ec *executionContext) _Query_link(ctx context.Context, field graphql.CollectedField) graphql.Marshaler {
@@ -1251,7 +1252,7 @@ func (ec *executionContext) _Query_link(ctx context.Context, field graphql.Colle
 	res := resTmp.(*Link)
 	rctx.Result = res
 	ctx = ec.Tracer.StartFieldChildExecution(ctx)
-	return ec.marshalOLink2ᚖgitlabᚗcomᚋgifarydhimasᚋdrophereᚑgoᚐLink(ctx, field.Selections, res)
+	return ec.marshalOLink2ᚖgithubᚗcomᚋbccfilkomᚋdrophereᚑgoᚐLink(ctx, field.Selections, res)
 }
 
 func (ec *executionContext) _Query___type(ctx context.Context, field graphql.CollectedField) graphql.Marshaler {
@@ -1363,33 +1364,6 @@ func (ec *executionContext) _User_id(ctx context.Context, field graphql.Collecte
 	return ec.marshalNInt2int(ctx, field.Selections, res)
 }
 
-func (ec *executionContext) _User_username(ctx context.Context, field graphql.CollectedField, obj *User) graphql.Marshaler {
-	ctx = ec.Tracer.StartFieldExecution(ctx, field)
-	defer func() { ec.Tracer.EndFieldExecution(ctx) }()
-	rctx := &graphql.ResolverContext{
-		Object:   "User",
-		Field:    field,
-		Args:     nil,
-		IsMethod: false,
-	}
-	ctx = graphql.WithResolverContext(ctx, rctx)
-	ctx = ec.Tracer.StartFieldResolverExecution(ctx, rctx)
-	resTmp := ec.FieldMiddleware(ctx, obj, func(rctx context.Context) (interface{}, error) {
-		ctx = rctx // use context from middleware stack in children
-		return obj.Username, nil
-	})
-	if resTmp == nil {
-		if !ec.HasError(rctx) {
-			ec.Errorf(ctx, "must not be null")
-		}
-		return graphql.Null
-	}
-	res := resTmp.(string)
-	rctx.Result = res
-	ctx = ec.Tracer.StartFieldChildExecution(ctx)
-	return ec.marshalNString2string(ctx, field.Selections, res)
-}
-
 func (ec *executionContext) _User_email(ctx context.Context, field graphql.CollectedField, obj *User) graphql.Marshaler {
 	ctx = ec.Tracer.StartFieldExecution(ctx, field)
 	defer func() { ec.Tracer.EndFieldExecution(ctx) }()
@@ -1404,6 +1378,33 @@ func (ec *executionContext) _User_email(ctx context.Context, field graphql.Colle
 	resTmp := ec.FieldMiddleware(ctx, obj, func(rctx context.Context) (interface{}, error) {
 		ctx = rctx // use context from middleware stack in children
 		return obj.Email, nil
+	})
+	if resTmp == nil {
+		if !ec.HasError(rctx) {
+			ec.Errorf(ctx, "must not be null")
+		}
+		return graphql.Null
+	}
+	res := resTmp.(string)
+	rctx.Result = res
+	ctx = ec.Tracer.StartFieldChildExecution(ctx)
+	return ec.marshalNString2string(ctx, field.Selections, res)
+}
+
+func (ec *executionContext) _User_name(ctx context.Context, field graphql.CollectedField, obj *User) graphql.Marshaler {
+	ctx = ec.Tracer.StartFieldExecution(ctx, field)
+	defer func() { ec.Tracer.EndFieldExecution(ctx) }()
+	rctx := &graphql.ResolverContext{
+		Object:   "User",
+		Field:    field,
+		Args:     nil,
+		IsMethod: false,
+	}
+	ctx = graphql.WithResolverContext(ctx, rctx)
+	ctx = ec.Tracer.StartFieldResolverExecution(ctx, rctx)
+	resTmp := ec.FieldMiddleware(ctx, obj, func(rctx context.Context) (interface{}, error) {
+		ctx = rctx // use context from middleware stack in children
+		return obj.Name, nil
 	})
 	if resTmp == nil {
 		if !ec.HasError(rctx) {
@@ -2546,13 +2547,13 @@ func (ec *executionContext) _User(ctx context.Context, sel ast.SelectionSet, obj
 			if out.Values[i] == graphql.Null {
 				invalids++
 			}
-		case "username":
-			out.Values[i] = ec._User_username(ctx, field, obj)
+		case "email":
+			out.Values[i] = ec._User_email(ctx, field, obj)
 			if out.Values[i] == graphql.Null {
 				invalids++
 			}
-		case "email":
-			out.Values[i] = ec._User_email(ctx, field, obj)
+		case "name":
+			out.Values[i] = ec._User_name(ctx, field, obj)
 			if out.Values[i] == graphql.Null {
 				invalids++
 			}
@@ -3109,34 +3110,11 @@ func (ec *executionContext) marshalOBoolean2ᚖbool(ctx context.Context, sel ast
 	return ec.marshalOBoolean2bool(ctx, sel, *v)
 }
 
-func (ec *executionContext) unmarshalODate2string(ctx context.Context, v interface{}) (string, error) {
-	return graphql.UnmarshalString(v)
-}
-
-func (ec *executionContext) marshalODate2string(ctx context.Context, sel ast.SelectionSet, v string) graphql.Marshaler {
-	return graphql.MarshalString(v)
-}
-
-func (ec *executionContext) unmarshalODate2ᚖstring(ctx context.Context, v interface{}) (*string, error) {
-	if v == nil {
-		return nil, nil
-	}
-	res, err := ec.unmarshalODate2string(ctx, v)
-	return &res, err
-}
-
-func (ec *executionContext) marshalODate2ᚖstring(ctx context.Context, sel ast.SelectionSet, v *string) graphql.Marshaler {
-	if v == nil {
-		return graphql.Null
-	}
-	return ec.marshalODate2string(ctx, sel, *v)
-}
-
-func (ec *executionContext) marshalOLink2gitlabᚗcomᚋgifarydhimasᚋdrophereᚑgoᚐLink(ctx context.Context, sel ast.SelectionSet, v Link) graphql.Marshaler {
+func (ec *executionContext) marshalOLink2githubᚗcomᚋbccfilkomᚋdrophereᚑgoᚐLink(ctx context.Context, sel ast.SelectionSet, v Link) graphql.Marshaler {
 	return ec._Link(ctx, sel, &v)
 }
 
-func (ec *executionContext) marshalOLink2ᚕᚖgitlabᚗcomᚋgifarydhimasᚋdrophereᚑgoᚐLink(ctx context.Context, sel ast.SelectionSet, v []*Link) graphql.Marshaler {
+func (ec *executionContext) marshalOLink2ᚕᚖgithubᚗcomᚋbccfilkomᚋdrophereᚑgoᚐLink(ctx context.Context, sel ast.SelectionSet, v []*Link) graphql.Marshaler {
 	if v == nil {
 		return graphql.Null
 	}
@@ -3163,7 +3141,7 @@ func (ec *executionContext) marshalOLink2ᚕᚖgitlabᚗcomᚋgifarydhimasᚋdro
 			if !isLen1 {
 				defer wg.Done()
 			}
-			ret[i] = ec.marshalOLink2ᚖgitlabᚗcomᚋgifarydhimasᚋdrophereᚑgoᚐLink(ctx, sel, v[i])
+			ret[i] = ec.marshalOLink2ᚖgithubᚗcomᚋbccfilkomᚋdrophereᚑgoᚐLink(ctx, sel, v[i])
 		}
 		if isLen1 {
 			f(i)
@@ -3176,18 +3154,18 @@ func (ec *executionContext) marshalOLink2ᚕᚖgitlabᚗcomᚋgifarydhimasᚋdro
 	return ret
 }
 
-func (ec *executionContext) marshalOLink2ᚖgitlabᚗcomᚋgifarydhimasᚋdrophereᚑgoᚐLink(ctx context.Context, sel ast.SelectionSet, v *Link) graphql.Marshaler {
+func (ec *executionContext) marshalOLink2ᚖgithubᚗcomᚋbccfilkomᚋdrophereᚑgoᚐLink(ctx context.Context, sel ast.SelectionSet, v *Link) graphql.Marshaler {
 	if v == nil {
 		return graphql.Null
 	}
 	return ec._Link(ctx, sel, v)
 }
 
-func (ec *executionContext) marshalOMessage2gitlabᚗcomᚋgifarydhimasᚋdrophereᚑgoᚐMessage(ctx context.Context, sel ast.SelectionSet, v Message) graphql.Marshaler {
+func (ec *executionContext) marshalOMessage2githubᚗcomᚋbccfilkomᚋdrophereᚑgoᚐMessage(ctx context.Context, sel ast.SelectionSet, v Message) graphql.Marshaler {
 	return ec._Message(ctx, sel, &v)
 }
 
-func (ec *executionContext) marshalOMessage2ᚖgitlabᚗcomᚋgifarydhimasᚋdrophereᚑgoᚐMessage(ctx context.Context, sel ast.SelectionSet, v *Message) graphql.Marshaler {
+func (ec *executionContext) marshalOMessage2ᚖgithubᚗcomᚋbccfilkomᚋdrophereᚑgoᚐMessage(ctx context.Context, sel ast.SelectionSet, v *Message) graphql.Marshaler {
 	if v == nil {
 		return graphql.Null
 	}
@@ -3217,22 +3195,45 @@ func (ec *executionContext) marshalOString2ᚖstring(ctx context.Context, sel as
 	return ec.marshalOString2string(ctx, sel, *v)
 }
 
-func (ec *executionContext) marshalOToken2gitlabᚗcomᚋgifarydhimasᚋdrophereᚑgoᚐToken(ctx context.Context, sel ast.SelectionSet, v Token) graphql.Marshaler {
+func (ec *executionContext) unmarshalOTime2timeᚐTime(ctx context.Context, v interface{}) (time.Time, error) {
+	return graphql.UnmarshalTime(v)
+}
+
+func (ec *executionContext) marshalOTime2timeᚐTime(ctx context.Context, sel ast.SelectionSet, v time.Time) graphql.Marshaler {
+	return graphql.MarshalTime(v)
+}
+
+func (ec *executionContext) unmarshalOTime2ᚖtimeᚐTime(ctx context.Context, v interface{}) (*time.Time, error) {
+	if v == nil {
+		return nil, nil
+	}
+	res, err := ec.unmarshalOTime2timeᚐTime(ctx, v)
+	return &res, err
+}
+
+func (ec *executionContext) marshalOTime2ᚖtimeᚐTime(ctx context.Context, sel ast.SelectionSet, v *time.Time) graphql.Marshaler {
+	if v == nil {
+		return graphql.Null
+	}
+	return ec.marshalOTime2timeᚐTime(ctx, sel, *v)
+}
+
+func (ec *executionContext) marshalOToken2githubᚗcomᚋbccfilkomᚋdrophereᚑgoᚐToken(ctx context.Context, sel ast.SelectionSet, v Token) graphql.Marshaler {
 	return ec._Token(ctx, sel, &v)
 }
 
-func (ec *executionContext) marshalOToken2ᚖgitlabᚗcomᚋgifarydhimasᚋdrophereᚑgoᚐToken(ctx context.Context, sel ast.SelectionSet, v *Token) graphql.Marshaler {
+func (ec *executionContext) marshalOToken2ᚖgithubᚗcomᚋbccfilkomᚋdrophereᚑgoᚐToken(ctx context.Context, sel ast.SelectionSet, v *Token) graphql.Marshaler {
 	if v == nil {
 		return graphql.Null
 	}
 	return ec._Token(ctx, sel, v)
 }
 
-func (ec *executionContext) marshalOUser2gitlabᚗcomᚋgifarydhimasᚋdrophereᚑgoᚐUser(ctx context.Context, sel ast.SelectionSet, v User) graphql.Marshaler {
+func (ec *executionContext) marshalOUser2githubᚗcomᚋbccfilkomᚋdrophereᚑgoᚐUser(ctx context.Context, sel ast.SelectionSet, v User) graphql.Marshaler {
 	return ec._User(ctx, sel, &v)
 }
 
-func (ec *executionContext) marshalOUser2ᚖgitlabᚗcomᚋgifarydhimasᚋdrophereᚑgoᚐUser(ctx context.Context, sel ast.SelectionSet, v *User) graphql.Marshaler {
+func (ec *executionContext) marshalOUser2ᚖgithubᚗcomᚋbccfilkomᚋdrophereᚑgoᚐUser(ctx context.Context, sel ast.SelectionSet, v *User) graphql.Marshaler {
 	if v == nil {
 		return graphql.Null
 	}

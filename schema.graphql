@@ -1,9 +1,9 @@
-scalar Date
+scalar Time
 
 type User {
   id: Int!
-  username: String!
   email: String!
+  name: String!
   dropboxauth: Boolean
   dropboxemail: String
   dropboxavatar: String
@@ -17,7 +17,7 @@ type Link {
   isProtected: Boolean!
   slug: String
   description: String
-  deadline: Date
+  deadline: Time
 }
 type Message {
   message: String!
@@ -31,12 +31,12 @@ type Query {
 }
 type Mutation {
   # Register new user
-  register(username: String!, email: String!, password: String!): Token
-  login(username: String!, password: String!): Token
+  register(email: String!, password: String!, name: String!): Token
+  login(email: String!, password: String!): Token
   updatePassword(oldPassword: String!, newPassword: String!): Message
-  updateProfile(newEmail: String!): Message
-  createLink(title:  String!,slug: String!, description: String, deadline: Date, password: String): Link
-  updateLink(linkId: Int!, title:  String!, slug: String!, description: String, deadline: Date, password: String): Message
+  updateProfile(newName: String!): Message
+  createLink(title:  String!,slug: String!, description: String, deadline: Time, password: String): Link
+  updateLink(linkId: Int!, title:  String!, slug: String!, description: String, deadline: Time, password: String): Message
   deleteLink(linkId: Int!): Message
   checkLinkPassword(linkId: Int!, password: String!): Message
 }

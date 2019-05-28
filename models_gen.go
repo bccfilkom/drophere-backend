@@ -2,13 +2,17 @@
 
 package drophere_go
 
+import (
+	"time"
+)
+
 type Link struct {
-	ID          int     `json:"id"`
-	Title       string  `json:"title"`
-	IsProtected bool    `json:"isProtected"`
-	Slug        *string `json:"slug"`
-	Description *string `json:"description"`
-	Deadline    *string `json:"deadline"`
+	ID          int        `json:"id"`
+	Title       string     `json:"title"`
+	IsProtected bool       `json:"isProtected"`
+	Slug        *string    `json:"slug"`
+	Description *string    `json:"description"`
+	Deadline    *time.Time `json:"deadline"`
 }
 
 type Message struct {
@@ -21,8 +25,8 @@ type Token struct {
 
 type User struct {
 	ID            int     `json:"id"`
-	Username      string  `json:"username"`
 	Email         string  `json:"email"`
+	Name          string  `json:"name"`
 	Dropboxauth   *bool   `json:"dropboxauth"`
 	Dropboxemail  *string `json:"dropboxemail"`
 	Dropboxavatar *string `json:"dropboxavatar"`
