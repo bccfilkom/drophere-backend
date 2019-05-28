@@ -46,6 +46,7 @@ type LinkService interface {
 	UpdateLink(id uint, title, slug string, description *string, deadline *time.Time, password *string) (*Link, error)
 	DeleteLink(id uint) error
 	FetchLink(id uint) (*Link, error)
+	FindLinkBySlug(slug string) (*Link, error)
 	ListLinks(userID uint) ([]Link, error)
 }
 

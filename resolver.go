@@ -21,8 +21,6 @@ type authenticator interface {
 
 // Resolver resolves given query from client
 type Resolver struct {
-	links         []Link
-	lastLinkID    int
 	linkSvc       domain.LinkService
 	userSvc       domain.UserService
 	authenticator authenticator
@@ -39,30 +37,6 @@ func NewResolver(
 		userSvc:       userSvc,
 		authenticator: authenticator,
 	}
-}
-
-func (r *Resolver) searchLink(ID int) (idx int, found bool) {
-	for i, link := range r.links {
-		if link.ID == ID {
-			idx = i
-			found = true
-			return
-		}
-	}
-
-	return
-}
-
-func (r *Resolver) searchLinkSlug(slug string) (idx int, found bool) {
-	for i, link := range r.links {
-		if link.Slug != nil && *link.Slug == slug {
-			idx = i
-			found = true
-			return
-		}
-	}
-
-	return
 }
 
 // Mutation returns a group of resolvers for mutation query
@@ -197,14 +171,14 @@ func (r *queryResolver) Links(ctx context.Context) ([]*Link, error) {
 	}
 
 	formattedLinks := make([]*Link, len(links))
-	for i, link := range links {
+	for i := range links {
 		formattedLinks[i] = &Link{
-			ID:          int(link.ID),
-			Title:       link.Title,
-			IsProtected: link.IsProtected(),
-			Slug:        &link.Slug,
-			Description: &link.Description,
-			Deadline:    link.Deadline,
+			ID:          int(links[i].ID),
+			Title:       links[i].Title,
+			IsProtected: links[i].IsProtected(),
+			Slug:        &links[i].Slug,
+			Description: &links[i].Description,
+			Deadline:    links[i].Deadline,
 		}
 	}
 	return formattedLinks, nil
@@ -221,10 +195,18 @@ func (r *queryResolver) Me(ctx context.Context) (*User, error) {
 	}, nil
 }
 func (r *queryResolver) Link(ctx context.Context, slug string) (*Link, error) {
-	linkIdx, found := r.searchLinkSlug(slug)
-	if !found {
-		return nil, errors.New("link not found")
+	// this is for public use, no need to check user auth
+	link, err := r.linkSvc.FindLinkBySlug(slug)
+	if err != nil {
+		return nil, err
 	}
 
-	return &r.links[linkIdx], nil
+	return &Link{
+		ID:          int(link.ID),
+		Title:       link.Title,
+		IsProtected: link.IsProtected(),
+		Slug:        &link.Slug,
+		Description: &link.Description,
+		Deadline:    link.Deadline,
+	}, nil
 }

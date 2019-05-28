@@ -85,6 +85,11 @@ func (s *service) FetchLink(id uint) (*domain.Link, error) {
 	return s.linkRepo.FindByID(id)
 }
 
+// FindLinkBySlug returns single Link identified by its slug
+func (s *service) FindLinkBySlug(slug string) (*domain.Link, error) {
+	return s.linkRepo.FindBySlug(slug)
+}
+
 // ListLinks returns list of Link which belongs to a user
 func (s *service) ListLinks(userID uint) ([]domain.Link, error) {
 	return s.linkRepo.ListByUser(userID)

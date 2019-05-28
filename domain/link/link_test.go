@@ -204,6 +204,52 @@ func TestFetchLink(t *testing.T) {
 
 }
 
+func TestFindLinkBySlug(t *testing.T) {
+	type test struct {
+		slug     string
+		wantErr  error
+		wantLink *domain.Link
+	}
+
+	linkRepo, userRepo := newRepo()
+
+	user, _ := userRepo.FindByID(1)
+
+	tests := []test{
+		{
+			slug:    "123",
+			wantErr: domain.ErrLinkNotFound,
+		},
+		{
+			slug:    "drop-here",
+			wantErr: nil,
+			wantLink: &domain.Link{
+				ID:          1,
+				UserID:      user.ID,
+				User:        user,
+				Title:       "Drop file here",
+				Slug:        "drop-here",
+				Password:    "123098",
+				Description: "drop a file here",
+			},
+		},
+	}
+
+	linkSvc := link.NewService(linkRepo)
+
+	for i, tc := range tests {
+		gotLink, gotErr := linkSvc.FindLinkBySlug(tc.slug)
+		if gotErr != tc.wantErr {
+			t.Fatalf("test %d: expected: %v, got: %v", i, tc.wantErr, gotErr)
+		}
+
+		if !reflect.DeepEqual(gotLink, tc.wantLink) {
+			t.Fatalf("test %d: expected: %v, got: %v", i, tc.wantLink, gotLink)
+		}
+	}
+
+}
+
 func TestListLinks(t *testing.T) {
 	type test struct {
 		userID    uint
