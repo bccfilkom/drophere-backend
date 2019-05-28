@@ -1,0 +1,43 @@
+scalar Date
+
+type User {
+  id: Int!
+  username: String!
+  email: String!
+  dropboxauth: Boolean
+  dropboxemail: String
+  dropboxavatar: String
+}
+type Token {
+  loginToken: String!
+}
+type Link {
+  id: Int!
+  title: String!
+  isProtected: Boolean!
+  slug: String
+  description: String
+  deadline: Date
+}
+type Message {
+  message: String!
+}
+
+# the schema allows the following query:
+type Query {
+  links: [Link]
+  me: User
+  link(slug: String!): Link 
+}
+type Mutation {
+  # Register new user
+  register(username: String!, email: String!, password: String!): Token
+  login(username: String!, password: String!): Token
+  updatePassword(oldPassword: String!, newPassword: String!): Message
+  updateProfile(newEmail: String!): Message
+  createLink(title:  String!,slug: String!, description: String, deadline: Date, password: String): Link
+  updateLink(linkId: Int!, title:  String!, slug: String!, description: String, deadline: Date, password: String): Message
+  deleteLink(linkId: Int!): Message
+  checkLinkPassword(linkId: Int!, password: String!): Message
+}
+
