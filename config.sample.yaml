@@ -1,0 +1,6 @@
+db:
+  dsn: "user:pwd@tcp(localhost:3306)/drophere?charset=utf8mb4&collation=utf8mb4_general_ci&parseTime=true"
+jwt:
+  secret: "please-put-your-secret-key-here"
+  duration: 8760 # in hours (token duration)
+  signingAlgorithm: HS256
