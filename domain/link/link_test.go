@@ -157,3 +157,107 @@ func TestDeleteLink(t *testing.T) {
 	}
 
 }
+
+func TestFetchLink(t *testing.T) {
+	type test struct {
+		linkID   uint
+		wantErr  error
+		wantLink *domain.Link
+	}
+
+	linkRepo, userRepo := newRepo()
+
+	user, _ := userRepo.FindByID(1)
+
+	tests := []test{
+		{
+			linkID:  123,
+			wantErr: domain.ErrLinkNotFound,
+		},
+		{
+			linkID:  1,
+			wantErr: nil,
+			wantLink: &domain.Link{
+				ID:          1,
+				UserID:      user.ID,
+				User:        user,
+				Title:       "Drop file here",
+				Slug:        "drop-here",
+				Password:    "123098",
+				Description: "drop a file here",
+			},
+		},
+	}
+
+	linkSvc := link.NewService(linkRepo)
+
+	for i, tc := range tests {
+		gotLink, gotErr := linkSvc.FetchLink(tc.linkID)
+		if gotErr != tc.wantErr {
+			t.Fatalf("test %d: expected: %v, got: %v", i, tc.wantErr, gotErr)
+		}
+
+		if !reflect.DeepEqual(gotLink, tc.wantLink) {
+			t.Fatalf("test %d: expected: %v, got: %v", i, tc.wantLink, gotLink)
+		}
+	}
+
+}
+
+func TestListLinks(t *testing.T) {
+	type test struct {
+		userID    uint
+		wantErr   error
+		wantLinks []domain.Link
+	}
+
+	linkRepo, userRepo := newRepo()
+
+	user, _ := userRepo.FindByID(1)
+
+	tests := []test{
+		{
+			userID:    123,
+			wantErr:   nil,
+			wantLinks: []domain.Link{},
+		},
+		{
+			userID:  1,
+			wantErr: nil,
+			wantLinks: []domain.Link{
+				{
+					ID:          1,
+					UserID:      user.ID,
+					User:        user,
+					Title:       "Drop file here",
+					Slug:        "drop-here",
+					Password:    "123098",
+					Description: "drop a file here",
+				},
+				{
+					ID:          100,
+					UserID:      user.ID,
+					User:        user,
+					Title:       "Test Link 2",
+					Slug:        "test-link-2",
+					Password:    "",
+					Description: "no description",
+				},
+			},
+		},
+	}
+
+	linkSvc := link.NewService(linkRepo)
+
+	for i, tc := range tests {
+		gotLinks, gotErr := linkSvc.ListLinks(tc.userID)
+		if gotErr != tc.wantErr {
+			t.Fatalf("test %d: expected: %v, got: %v", i, tc.wantErr, gotErr)
+		}
+
+		if !reflect.DeepEqual(gotLinks, tc.wantLinks) {
+			t.Fatalf("test %d: expected: %v, got: %v", i, tc.wantLinks, gotLinks)
+		}
+	}
+
+}

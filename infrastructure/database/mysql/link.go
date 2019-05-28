@@ -53,6 +53,19 @@ func (repo *linkRepository) FindBySlug(slug string) (*domain.Link, error) {
 	return &l, nil
 }
 
+// ListByUser implementation
+func (repo *linkRepository) ListByUser(userID uint) ([]domain.Link, error) {
+	var links []domain.Link
+	if err := repo.db.
+		Where("`user_id` = ? ", userID).
+		Find(&links).
+		Error; err != nil {
+		return nil, err
+	}
+
+	return links, nil
+}
+
 // Update implementation
 func (repo *linkRepository) Update(l *domain.Link) (link *domain.Link, err error) {
 	if err := repo.db.Save(l).Error; err != nil {

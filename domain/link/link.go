@@ -79,3 +79,13 @@ func (s *service) DeleteLink(id uint) error {
 
 	return s.linkRepo.Delete(l)
 }
+
+// FetchLink returns single Link identified by its ID
+func (s *service) FetchLink(id uint) (*domain.Link, error) {
+	return s.linkRepo.FindByID(id)
+}
+
+// ListLinks returns list of Link which belongs to a user
+func (s *service) ListLinks(userID uint) ([]domain.Link, error) {
+	return s.linkRepo.ListByUser(userID)
+}

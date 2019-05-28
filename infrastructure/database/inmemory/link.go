@@ -52,6 +52,18 @@ func (repo *linkRepository) FindBySlug(slug string) (*domain.Link, error) {
 	return nil, domain.ErrLinkNotFound
 }
 
+// ListByUser implementation
+func (repo *linkRepository) ListByUser(userID uint) ([]domain.Link, error) {
+	links := make([]domain.Link, 0, len(repo.db.links))
+	for _, link := range repo.db.links {
+		if link.UserID == userID {
+			links = append(links, link)
+		}
+	}
+
+	return links, nil
+}
+
 // Update implementation
 func (repo *linkRepository) Update(l *domain.Link) (link *domain.Link, err error) {
 	link = l

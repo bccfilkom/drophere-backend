@@ -45,6 +45,8 @@ type LinkService interface {
 	CreateLink(title, slug, description string, user *User) (*Link, error)
 	UpdateLink(id uint, title, slug string, description *string, deadline *time.Time, password *string) (*Link, error)
 	DeleteLink(id uint) error
+	FetchLink(id uint) (*Link, error)
+	ListLinks(userID uint) ([]Link, error)
 }
 
 // LinkRepository abstraction
@@ -53,5 +55,6 @@ type LinkRepository interface {
 	Delete(l *Link) error
 	FindByID(id uint) (*Link, error)
 	FindBySlug(slug string) (*Link, error)
+	ListByUser(userID uint) ([]Link, error)
 	Update(l *Link) (*Link, error)
 }

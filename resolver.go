@@ -10,6 +10,11 @@ import (
 	"github.com/bccfilkom/drophere-go/domain"
 ) // THIS CODE IS A STARTING POINT ONLY. IT WILL NOT BE UPDATED WITH SCHEMA CHANGES.
 
+var (
+	errUnauthenticated = errors.New("Access denied")
+	errUnauthorized    = errors.New("You are not allowed to do this operation")
+)
+
 type authenticator interface {
 	GetAuthenticatedUser(context.Context) *domain.User
 }
@@ -100,7 +105,7 @@ func (r *mutationResolver) UpdateProfile(ctx context.Context, newName string) (*
 func (r *mutationResolver) CreateLink(ctx context.Context, title string, slug string, description *string, deadline *time.Time, password *string) (*Link, error) {
 	user := r.authenticator.GetAuthenticatedUser(ctx)
 	if user == nil {
-		return nil, errors.New("access denied")
+		return nil, errUnauthenticated
 	}
 
 	desc := ""
@@ -125,10 +130,19 @@ func (r *mutationResolver) CreateLink(ctx context.Context, title string, slug st
 func (r *mutationResolver) UpdateLink(ctx context.Context, linkID int, title string, slug string, description *string, deadline *time.Time, password *string) (*Message, error) {
 	user := r.authenticator.GetAuthenticatedUser(ctx)
 	if user == nil {
-		return nil, errors.New("access denied")
+		return nil, errUnauthenticated
 	}
 
-	_, err := r.linkSvc.UpdateLink(
+	l, err := r.linkSvc.FetchLink(uint(linkID))
+	if err != nil {
+		return nil, err
+	}
+
+	if l.UserID != user.ID {
+		return nil, errUnauthorized
+	}
+
+	_, err = r.linkSvc.UpdateLink(
 		uint(linkID),
 		title,
 		slug,
@@ -146,10 +160,19 @@ func (r *mutationResolver) UpdateLink(ctx context.Context, linkID int, title str
 func (r *mutationResolver) DeleteLink(ctx context.Context, linkID int) (*Message, error) {
 	user := r.authenticator.GetAuthenticatedUser(ctx)
 	if user == nil {
-		return nil, errors.New("access denied")
+		return nil, errUnauthenticated
 	}
 
-	err := r.linkSvc.DeleteLink(uint(linkID))
+	l, err := r.linkSvc.FetchLink(uint(linkID))
+	if err != nil {
+		return nil, err
+	}
+
+	if l.UserID != user.ID {
+		return nil, errUnauthorized
+	}
+
+	err = r.linkSvc.DeleteLink(uint(linkID))
 	if err != nil {
 		return nil, err
 	}
@@ -163,16 +186,33 @@ func (r *mutationResolver) CheckLinkPassword(ctx context.Context, linkID int, pa
 type queryResolver struct{ *Resolver }
 
 func (r *queryResolver) Links(ctx context.Context) ([]*Link, error) {
-	links := make([]*Link, len(r.links))
-	for i := range r.links {
-		links[i] = &r.links[i]
+	user := r.authenticator.GetAuthenticatedUser(ctx)
+	if user == nil {
+		return nil, errUnauthenticated
 	}
-	return links, nil
+
+	links, err := r.linkSvc.ListLinks(user.ID)
+	if err != nil {
+		return nil, err
+	}
+
+	formattedLinks := make([]*Link, len(links))
+	for i, link := range links {
+		formattedLinks[i] = &Link{
+			ID:          int(link.ID),
+			Title:       link.Title,
+			IsProtected: link.IsProtected(),
+			Slug:        &link.Slug,
+			Description: &link.Description,
+			Deadline:    link.Deadline,
+		}
+	}
+	return formattedLinks, nil
 }
 func (r *queryResolver) Me(ctx context.Context) (*User, error) {
 	user := r.authenticator.GetAuthenticatedUser(ctx)
 	if user == nil {
-		return nil, errors.New("access denied")
+		return nil, errUnauthenticated
 	}
 	return &User{
 		ID:    int(user.ID),
