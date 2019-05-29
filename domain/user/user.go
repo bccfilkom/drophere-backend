@@ -5,15 +5,21 @@ import (
 )
 
 type service struct {
-	userRepo      domain.UserRepository
-	authenticator domain.Authenticator
+	userRepo       domain.UserRepository
+	authenticator  domain.Authenticator
+	passwordHasher domain.Hasher
 }
 
 // NewService returns service instance
-func NewService(userRepo domain.UserRepository, authenticator domain.Authenticator) domain.UserService {
+func NewService(
+	userRepo domain.UserRepository,
+	authenticator domain.Authenticator,
+	passwordHasher domain.Hasher,
+) domain.UserService {
 	return &service{
-		userRepo:      userRepo,
-		authenticator: authenticator,
+		userRepo:       userRepo,
+		authenticator:  authenticator,
+		passwordHasher: passwordHasher,
 	}
 }
 
@@ -23,7 +29,7 @@ func (s *service) Register(email, name, password string) (*domain.User, error) {
 		Email: email,
 		Name:  name,
 	}
-	user.SetPassword(password)
+	user.SetPassword(password, s.passwordHasher)
 	return s.userRepo.Create(user)
 }
 
@@ -34,7 +40,7 @@ func (s *service) Auth(email, password string) (*domain.UserCredentials, error) 
 		return nil, err
 	}
 
-	if !user.VerifyPassword(password) {
+	if !user.VerifyPassword(password, s.passwordHasher) {
 		return nil, domain.ErrUserInvalidPassword
 	}
 
@@ -49,11 +55,11 @@ func (s *service) Update(userID uint, name, newPassword, oldPassword *string) (*
 	}
 
 	if newPassword != nil {
-		if oldPassword == nil || !u.VerifyPassword(*oldPassword) {
+		if oldPassword == nil || !u.VerifyPassword(*oldPassword, s.passwordHasher) {
 			return nil, domain.ErrUserInvalidPassword
 		}
 
-		u.SetPassword(*newPassword)
+		u.SetPassword(*newPassword, s.passwordHasher)
 	}
 
 	if name != nil {

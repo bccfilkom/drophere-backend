@@ -12,6 +12,7 @@ import (
 	"github.com/bccfilkom/drophere-go/domain/user"
 	"github.com/bccfilkom/drophere-go/infrastructure/auth"
 	"github.com/bccfilkom/drophere-go/infrastructure/database/mysql"
+	"github.com/bccfilkom/drophere-go/infrastructure/hasher"
 
 	"github.com/go-chi/chi"
 	"github.com/go-chi/chi/middleware"
@@ -58,10 +59,11 @@ func main() {
 		viper.GetString("jwt.signingAlgorithm"),
 		userRepo,
 	)
+	bcryptHasher := hasher.NewBcryptHasher()
 
 	// initialize services
-	userSvc := user.NewService(userRepo, authenticator)
-	linkSvc := link.NewService(linkRepo)
+	userSvc := user.NewService(userRepo, authenticator, bcryptHasher)
+	linkSvc := link.NewService(linkRepo, bcryptHasher)
 
 	resolver := drophere_go.NewResolver(userSvc, authenticator, linkSvc)
 

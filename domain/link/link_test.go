@@ -8,7 +8,14 @@ import (
 	"github.com/bccfilkom/drophere-go/domain"
 	"github.com/bccfilkom/drophere-go/domain/link"
 	"github.com/bccfilkom/drophere-go/infrastructure/database/inmemory"
+	"github.com/bccfilkom/drophere-go/infrastructure/hasher"
 )
+
+var dummyHasher domain.Hasher
+
+func init() {
+	dummyHasher = hasher.NewNotAHasher()
+}
 
 func newRepo() (domain.LinkRepository, domain.UserRepository) {
 	memdb := inmemory.New()
@@ -53,7 +60,7 @@ func TestCreateLink(t *testing.T) {
 		},
 	}
 
-	linkSvc := link.NewService(linkRepo)
+	linkSvc := link.NewService(linkRepo, dummyHasher)
 
 	for i, tc := range tests {
 		_, gotErr := linkSvc.CreateLink(tc.title, tc.slug, tc.description, tc.user)
@@ -113,7 +120,7 @@ func TestUpdateLink(t *testing.T) {
 		},
 	}
 
-	linkSvc := link.NewService(linkRepo)
+	linkSvc := link.NewService(linkRepo, dummyHasher)
 
 	for i, tc := range tests {
 		gotLink, gotErr := linkSvc.UpdateLink(tc.linkID, tc.title, tc.slug, tc.description, tc.deadline, tc.password)
@@ -147,7 +154,7 @@ func TestDeleteLink(t *testing.T) {
 		},
 	}
 
-	linkSvc := link.NewService(linkRepo)
+	linkSvc := link.NewService(linkRepo, dummyHasher)
 
 	for i, tc := range tests {
 		gotErr := linkSvc.DeleteLink(tc.linkID)
@@ -189,7 +196,7 @@ func TestFetchLink(t *testing.T) {
 		},
 	}
 
-	linkSvc := link.NewService(linkRepo)
+	linkSvc := link.NewService(linkRepo, dummyHasher)
 
 	for i, tc := range tests {
 		gotLink, gotErr := linkSvc.FetchLink(tc.linkID)
@@ -235,7 +242,7 @@ func TestFindLinkBySlug(t *testing.T) {
 		},
 	}
 
-	linkSvc := link.NewService(linkRepo)
+	linkSvc := link.NewService(linkRepo, dummyHasher)
 
 	for i, tc := range tests {
 		gotLink, gotErr := linkSvc.FindLinkBySlug(tc.slug)
@@ -293,7 +300,7 @@ func TestListLinks(t *testing.T) {
 		},
 	}
 
-	linkSvc := link.NewService(linkRepo)
+	linkSvc := link.NewService(linkRepo, dummyHasher)
 
 	for i, tc := range tests {
 		gotLinks, gotErr := linkSvc.ListLinks(tc.userID)

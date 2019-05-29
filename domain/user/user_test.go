@@ -8,12 +8,17 @@ import (
 	"github.com/bccfilkom/drophere-go/domain/user"
 	"github.com/bccfilkom/drophere-go/infrastructure/auth"
 	"github.com/bccfilkom/drophere-go/infrastructure/database/inmemory"
+	"github.com/bccfilkom/drophere-go/infrastructure/hasher"
 )
 
-var authenticator domain.Authenticator
+var (
+	authenticator domain.Authenticator
+	dummyHasher   domain.Hasher
+)
 
 func init() {
 	authenticator = auth.NewJWTMock()
+	dummyHasher = hasher.NewNotAHasher()
 }
 
 func newUserRepo() domain.UserRepository {
@@ -38,7 +43,7 @@ func TestRegister(t *testing.T) {
 		{email: "user@drophere.link", name: "User", password: "123456", wantErr: nil},
 	}
 
-	userSvc := user.NewService(newUserRepo(), authenticator)
+	userSvc := user.NewService(newUserRepo(), authenticator, dummyHasher)
 
 	for i, tc := range tests {
 		_, gotErr := userSvc.Register(tc.email, tc.name, tc.password)
@@ -62,7 +67,7 @@ func TestAuth(t *testing.T) {
 		{email: "user@drophere.link", password: "123456", wantCreds: &domain.UserCredentials{Token: "user_token_1"}},
 	}
 
-	userSvc := user.NewService(newUserRepo(), authenticator)
+	userSvc := user.NewService(newUserRepo(), authenticator, dummyHasher)
 
 	for i, tc := range tests {
 		gotCreds, gotErr := userSvc.Auth(tc.email, tc.password)
@@ -106,7 +111,7 @@ func TestUpdate(t *testing.T) {
 		},
 	}
 
-	userSvc := user.NewService(userRepo, authenticator)
+	userSvc := user.NewService(userRepo, authenticator, dummyHasher)
 
 	for i, tc := range tests {
 		gotUser, gotErr := userSvc.Update(tc.userID, tc.name, tc.password, tc.oldPassword)

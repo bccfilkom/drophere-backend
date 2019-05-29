@@ -7,12 +7,13 @@ import (
 )
 
 type service struct {
-	linkRepo domain.LinkRepository
+	linkRepo       domain.LinkRepository
+	passwordHasher domain.Hasher
 }
 
 // NewService returns new service instance
-func NewService(linkRepo domain.LinkRepository) domain.LinkService {
-	return &service{linkRepo}
+func NewService(linkRepo domain.LinkRepository, passwordHasher domain.Hasher) domain.LinkService {
+	return &service{linkRepo, passwordHasher}
 }
 
 // CreateLink creates new Link and store it to repository
@@ -64,7 +65,7 @@ func (s *service) UpdateLink(linkID uint, title, slug string, description *strin
 	}
 
 	if password != nil {
-		l.SetPassword(*password)
+		l.SetPassword(*password, s.passwordHasher)
 	}
 
 	return s.linkRepo.Update(l)
