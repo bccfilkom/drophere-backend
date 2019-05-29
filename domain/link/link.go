@@ -56,12 +56,9 @@ func (s *service) UpdateLink(linkID uint, title, slug string, description *strin
 
 	l.Title = title
 	l.Slug = slug
+	l.Deadline = deadline // set null if the user want to remove the deadline
 	if description != nil {
 		l.Description = *description
-	}
-
-	if deadline != nil {
-		l.Deadline = deadline
 	}
 
 	if password != nil {
