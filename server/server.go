@@ -84,6 +84,7 @@ func main() {
 
 	router.Handle("/", handler.Playground("GraphQL playground", "/query"))
 	router.Handle("/query", handler.GraphQL(drophere_go.NewExecutableSchema(drophere_go.Config{Resolvers: resolver})))
+	router.Post("/uploadfile", fileUploadHandler(userSvc, linkSvc))
 
 	log.Printf("connect to http://localhost:%s/ for GraphQL playground", port)
 	err = http.ListenAndServe(":"+port, router)

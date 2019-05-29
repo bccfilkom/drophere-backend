@@ -32,51 +32,50 @@ func time2ptr(t time.Time) *time.Time {
 
 func TestCheckLinkPassword(t *testing.T) {
 	type test struct {
-		linkID   uint
-		password string
-		wantErr  error
+		link       *domain.Link
+		password   string
+		wantResult bool
 	}
 
 	linkRepo, _ := newRepo()
-
+	getLink := func(id uint) *domain.Link {
+		l, _ := linkRepo.FindByID(id)
+		return l
+	}
 	tests := []test{
 		{
-			linkID:  123,
-			wantErr: domain.ErrLinkNotFound,
+			link:       getLink(1),
+			password:   "",
+			wantResult: false,
 		},
 		{
-			linkID:   1,
-			password: "",
-			wantErr:  domain.ErrLinkInvalidPassword,
+			link:       getLink(1),
+			password:   "abcdef",
+			wantResult: false,
 		},
 		{
-			linkID:   1,
-			password: "abcdef",
-			wantErr:  domain.ErrLinkInvalidPassword,
+			link:       getLink(1),
+			password:   "123098",
+			wantResult: true,
 		},
 		{
-			linkID:   1,
-			password: "123098",
-			wantErr:  nil,
+			link:       getLink(100),
+			password:   "123098",
+			wantResult: true,
 		},
 		{
-			linkID:   100,
-			password: "123098",
-			wantErr:  nil,
-		},
-		{
-			linkID:   100,
-			password: "",
-			wantErr:  nil,
+			link:       getLink(100),
+			password:   "",
+			wantResult: true,
 		},
 	}
 
 	linkSvc := link.NewService(linkRepo, dummyHasher)
 
 	for i, tc := range tests {
-		gotErr := linkSvc.CheckLinkPassword(tc.linkID, tc.password)
-		if gotErr != tc.wantErr {
-			t.Fatalf("test %d: expected: %v, got: %v", i, tc.wantErr, gotErr)
+		gotResult := linkSvc.CheckLinkPassword(tc.link, tc.password)
+		if gotResult != tc.wantResult {
+			t.Fatalf("test %d: expected: %v, got: %v", i, tc.wantResult, gotResult)
 		}
 	}
 

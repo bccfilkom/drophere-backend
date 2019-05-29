@@ -29,7 +29,12 @@ func (s *service) Register(email, name, password string) (*domain.User, error) {
 		Email: email,
 		Name:  name,
 	}
-	user.SetPassword(password, s.passwordHasher)
+
+	var err error
+	user.Password, err = s.passwordHasher.Hash(password)
+	if err != nil {
+		return nil, err
+	}
 	return s.userRepo.Create(user)
 }
 
@@ -40,7 +45,7 @@ func (s *service) Auth(email, password string) (*domain.UserCredentials, error) 
 		return nil, err
 	}
 
-	if !user.VerifyPassword(password, s.passwordHasher) {
+	if !s.passwordHasher.Verify(user.Password, password) {
 		return nil, domain.ErrUserInvalidPassword
 	}
 
@@ -55,11 +60,14 @@ func (s *service) Update(userID uint, name, newPassword, oldPassword *string) (*
 	}
 
 	if newPassword != nil {
-		if oldPassword == nil || !u.VerifyPassword(*oldPassword, s.passwordHasher) {
+		if oldPassword == nil || !s.passwordHasher.Verify(u.Password, *oldPassword) {
 			return nil, domain.ErrUserInvalidPassword
 		}
 
-		u.SetPassword(*newPassword, s.passwordHasher)
+		u.Password, err = s.passwordHasher.Hash(*newPassword)
+		if err != nil {
+			return nil, err
+		}
 	}
 
 	if name != nil {

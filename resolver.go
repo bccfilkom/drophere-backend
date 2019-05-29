@@ -176,12 +176,17 @@ func (r *mutationResolver) DeleteLink(ctx context.Context, linkID int) (*Message
 
 func (r *mutationResolver) CheckLinkPassword(ctx context.Context, linkID int, password string) (*Message, error) {
 	// this is for public use, no need to check user auth
-	err := r.linkSvc.CheckLinkPassword(uint(linkID), password)
+	l, err := r.linkSvc.FetchLink(uint(linkID))
 	if err != nil {
 		return nil, err
 	}
 
-	return &Message{Message: "Success"}, nil
+	msg := "Invalid Password"
+	if r.linkSvc.CheckLinkPassword(l, password) {
+		msg = "Valid Password"
+	}
+
+	return &Message{Message: msg}, nil
 }
 
 type queryResolver struct{ *Resolver }

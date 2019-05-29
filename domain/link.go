@@ -31,29 +31,9 @@ func (l *Link) IsProtected() bool {
 	return l.Password != ""
 }
 
-// SetPassword hash input password and set it to the link struct
-func (l *Link) SetPassword(password string, hasher Hasher) {
-	if password == "" {
-		l.Password = password
-		return
-	}
-
-	var err error
-	l.Password, err = hasher.Hash(password)
-	if err != nil {
-		panic(err)
-	}
-}
-
-// VerifyPassword checks if the encrypted password content is
-// equal to the given plain password
-func (l *Link) VerifyPassword(plainPwd string, hasher Hasher) bool {
-	return hasher.Verify(l.Password, plainPwd)
-}
-
 // LinkService abstraction
 type LinkService interface {
-	CheckLinkPassword(id uint, password string) error
+	CheckLinkPassword(l *Link, password string) bool
 	CreateLink(title, slug, description string, user *User) (*Link, error)
 	UpdateLink(id uint, title, slug string, description *string, deadline *time.Time, password *string) (*Link, error)
 	DeleteLink(id uint) error

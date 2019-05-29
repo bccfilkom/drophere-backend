@@ -22,21 +22,6 @@ type User struct {
 	DriveToken   *string
 }
 
-// SetPassword hash input password and set it to the user struct
-func (u *User) SetPassword(password string, hasher Hasher) {
-	var err error
-	u.Password, err = hasher.Hash(password)
-	if err != nil {
-		panic(err)
-	}
-}
-
-// VerifyPassword checks if the encrypted password content is
-// equal to the given plain password
-func (u *User) VerifyPassword(plainPwd string, hasher Hasher) bool {
-	return hasher.Verify(u.Password, plainPwd)
-}
-
 // UserCredentials model
 type UserCredentials struct {
 	Token  string
