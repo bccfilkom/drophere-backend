@@ -18,18 +18,18 @@ func NewService(userRepo domain.UserRepository, authenticator domain.Authenticat
 }
 
 // Register implementation
-func (u *service) Register(email, name, password string) (*domain.User, error) {
+func (s *service) Register(email, name, password string) (*domain.User, error) {
 	user := &domain.User{
 		Email: email,
 		Name:  name,
 	}
 	user.SetPassword(password)
-	return u.userRepo.Create(user)
+	return s.userRepo.Create(user)
 }
 
 // Auth implementation
-func (u *service) Auth(email, password string) (*domain.UserCredentials, error) {
-	user, err := u.userRepo.FindByEmail(email)
+func (s *service) Auth(email, password string) (*domain.UserCredentials, error) {
+	user, err := s.userRepo.FindByEmail(email)
 	if err != nil {
 		return nil, err
 	}
@@ -38,5 +38,27 @@ func (u *service) Auth(email, password string) (*domain.UserCredentials, error) 
 		return nil, domain.ErrUserInvalidPassword
 	}
 
-	return u.authenticator.Authenticate(user)
+	return s.authenticator.Authenticate(user)
+}
+
+// Update implementation
+func (s *service) Update(userID uint, name, newPassword, oldPassword *string) (*domain.User, error) {
+	u, err := s.userRepo.FindByID(userID)
+	if err != nil {
+		return nil, err
+	}
+
+	if newPassword != nil {
+		if oldPassword == nil || !u.VerifyPassword(*oldPassword) {
+			return nil, domain.ErrUserInvalidPassword
+		}
+
+		u.SetPassword(*newPassword)
+	}
+
+	if name != nil {
+		u.Name = *name
+	}
+
+	return s.userRepo.Update(u)
 }

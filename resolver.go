@@ -71,10 +71,30 @@ func (r *mutationResolver) Login(ctx context.Context, email string, password str
 	return &Token{LoginToken: userCreds.Token}, nil
 }
 func (r *mutationResolver) UpdatePassword(ctx context.Context, oldPassword string, newPassword string) (*Message, error) {
-	return &Message{Message: "update password: OK"}, nil
+	user := r.authenticator.GetAuthenticatedUser(ctx)
+	if user == nil {
+		return nil, errUnauthenticated
+	}
+
+	_, err := r.userSvc.Update(user.ID, nil, &newPassword, &oldPassword)
+	if err != nil {
+		return nil, err
+	}
+
+	return &Message{Message: "You password successfully updated"}, nil
 }
 func (r *mutationResolver) UpdateProfile(ctx context.Context, newName string) (*Message, error) {
-	return &Message{Message: "update profile: OK"}, nil
+	user := r.authenticator.GetAuthenticatedUser(ctx)
+	if user == nil {
+		return nil, errUnauthenticated
+	}
+
+	_, err := r.userSvc.Update(user.ID, &newName, nil, nil)
+	if err != nil {
+		return nil, err
+	}
+
+	return &Message{Message: "Your profile successfully updated"}, nil
 }
 func (r *mutationResolver) CreateLink(ctx context.Context, title string, slug string, description *string, deadline *time.Time, password *string) (*Link, error) {
 	user := r.authenticator.GetAuthenticatedUser(ctx)

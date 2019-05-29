@@ -1,6 +1,7 @@
 package user_test
 
 import (
+	"reflect"
 	"testing"
 
 	"github.com/bccfilkom/drophere-go/domain"
@@ -18,6 +19,10 @@ func init() {
 func newUserRepo() domain.UserRepository {
 	memdb := inmemory.New()
 	return inmemory.NewUserRepository(memdb)
+}
+
+func str2ptr(s string) *string {
+	return &s
 }
 
 func TestRegister(t *testing.T) {
@@ -66,6 +71,50 @@ func TestAuth(t *testing.T) {
 		}
 		if gotCreds != nil && gotCreds.Token != tc.wantCreds.Token {
 			t.Fatalf("test %d: expected: %v, got: %v", i, tc.wantCreds.Token, gotCreds.Token)
+		}
+	}
+}
+
+func TestUpdate(t *testing.T) {
+	type test struct {
+		userID      uint
+		name        *string
+		password    *string
+		oldPassword *string
+		wantUser    *domain.User
+		wantErr     error
+	}
+
+	userRepo := newUserRepo()
+	u, _ := userRepo.FindByID(1)
+
+	tests := []test{
+		{userID: 123, wantErr: domain.ErrUserNotFound, wantUser: nil},
+		{userID: 1, password: str2ptr("new_password123"), oldPassword: nil, wantErr: domain.ErrUserInvalidPassword},
+		{userID: 1, password: str2ptr("new_password123"), oldPassword: str2ptr(""), wantErr: domain.ErrUserInvalidPassword},
+		{
+			userID:      1,
+			name:        str2ptr("new name 123"),
+			password:    str2ptr("new_password123"),
+			oldPassword: str2ptr("123456"),
+			wantUser: &domain.User{
+				ID:       u.ID,
+				Email:    u.Email,
+				Name:     "new name 123",
+				Password: "new_password123",
+			},
+		},
+	}
+
+	userSvc := user.NewService(userRepo, authenticator)
+
+	for i, tc := range tests {
+		gotUser, gotErr := userSvc.Update(tc.userID, tc.name, tc.password, tc.oldPassword)
+		if gotErr != tc.wantErr {
+			t.Fatalf("test %d: expected: %v, got: %v", i, tc.wantErr, gotErr)
+		}
+		if !reflect.DeepEqual(gotUser, tc.wantUser) {
+			t.Fatalf("test %d: expected: %v, got: %v", i, tc.wantUser, gotUser)
 		}
 	}
 }

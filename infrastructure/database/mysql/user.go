@@ -46,3 +46,11 @@ func (repo *userRepository) FindByID(id uint) (*domain.User, error) {
 	}
 	return &user, nil
 }
+
+// Update implementation
+func (repo *userRepository) Update(u *domain.User) (*domain.User, error) {
+	if err := repo.db.Save(u).Error; err != nil {
+		return nil, err
+	}
+	return u, nil
+}

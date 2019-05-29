@@ -44,6 +44,7 @@ type UserCredentials struct {
 type UserService interface {
 	Register(email, name, password string) (*User, error)
 	Auth(email, password string) (*UserCredentials, error)
+	Update(userID uint, name, password, oldPassword *string) (*User, error)
 }
 
 // UserRepository abstraction
@@ -51,6 +52,7 @@ type UserRepository interface {
 	Create(u *User) (*User, error)
 	FindByEmail(email string) (*User, error)
 	FindByID(id uint) (*User, error)
+	Update(u *User) (*User, error)
 }
 
 // Authenticator is external authentication service
