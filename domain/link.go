@@ -8,6 +8,8 @@ import (
 var (
 	// ErrLinkDuplicatedSlug error
 	ErrLinkDuplicatedSlug = errors.New("link: duplicated slug")
+	// ErrLinkInvalidPassword error
+	ErrLinkInvalidPassword = errors.New("link: invalid password")
 	// ErrLinkNotFound error
 	ErrLinkNotFound = errors.New("link: not found")
 )
@@ -51,6 +53,7 @@ func (l *Link) VerifyPassword(plainPwd string, hasher Hasher) bool {
 
 // LinkService abstraction
 type LinkService interface {
+	CheckLinkPassword(id uint, password string) error
 	CreateLink(title, slug, description string, user *User) (*Link, error)
 	UpdateLink(id uint, title, slug string, description *string, deadline *time.Time, password *string) (*Link, error)
 	DeleteLink(id uint) error

@@ -30,6 +30,58 @@ func time2ptr(t time.Time) *time.Time {
 	return &t
 }
 
+func TestCheckLinkPassword(t *testing.T) {
+	type test struct {
+		linkID   uint
+		password string
+		wantErr  error
+	}
+
+	linkRepo, _ := newRepo()
+
+	tests := []test{
+		{
+			linkID:  123,
+			wantErr: domain.ErrLinkNotFound,
+		},
+		{
+			linkID:   1,
+			password: "",
+			wantErr:  domain.ErrLinkInvalidPassword,
+		},
+		{
+			linkID:   1,
+			password: "abcdef",
+			wantErr:  domain.ErrLinkInvalidPassword,
+		},
+		{
+			linkID:   1,
+			password: "123098",
+			wantErr:  nil,
+		},
+		{
+			linkID:   100,
+			password: "123098",
+			wantErr:  nil,
+		},
+		{
+			linkID:   100,
+			password: "",
+			wantErr:  nil,
+		},
+	}
+
+	linkSvc := link.NewService(linkRepo, dummyHasher)
+
+	for i, tc := range tests {
+		gotErr := linkSvc.CheckLinkPassword(tc.linkID, tc.password)
+		if gotErr != tc.wantErr {
+			t.Fatalf("test %d: expected: %v, got: %v", i, tc.wantErr, gotErr)
+		}
+	}
+
+}
+
 func TestCreateLink(t *testing.T) {
 	type test struct {
 		title       string

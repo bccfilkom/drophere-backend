@@ -16,6 +16,25 @@ func NewService(linkRepo domain.LinkRepository, passwordHasher domain.Hasher) do
 	return &service{linkRepo, passwordHasher}
 }
 
+// CheckLinkPassword checks if user-inputted password match the hashed password
+func (s *service) CheckLinkPassword(linkID uint, password string) error {
+	l, err := s.linkRepo.FindByID(linkID)
+	if err != nil {
+		return err
+	}
+
+	// skip password checking if link is not protected
+	if !l.IsProtected() {
+		return nil
+	}
+
+	if !l.VerifyPassword(password, s.passwordHasher) {
+		return domain.ErrLinkInvalidPassword
+	}
+
+	return nil
+}
+
 // CreateLink creates new Link and store it to repository
 func (s *service) CreateLink(title, slug, description string, user *domain.User) (*domain.Link, error) {
 	l, err := s.linkRepo.FindBySlug(slug)
