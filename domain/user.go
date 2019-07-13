@@ -6,10 +6,12 @@ import (
 )
 
 var (
+	// ErrUserDuplicated error
+	ErrUserDuplicated = errors.New("Duplicated email")
 	// ErrUserInvalidPassword error
-	ErrUserInvalidPassword = errors.New("user: invalid password")
+	ErrUserInvalidPassword = errors.New("Invalid password")
 	// ErrUserNotFound error
-	ErrUserNotFound = errors.New("user: not found")
+	ErrUserNotFound = errors.New("User not found")
 )
 
 // User model
@@ -33,6 +35,7 @@ type UserService interface {
 	Register(email, name, password string) (*User, error)
 	Auth(email, password string) (*UserCredentials, error)
 	Update(userID uint, name, password, oldPassword *string) (*User, error)
+	UpdateStorageToken(userID uint, dropboxToken *string) (*User, error)
 }
 
 // UserRepository abstraction

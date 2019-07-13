@@ -25,12 +25,21 @@ func NewService(
 
 // Register implementation
 func (s *service) Register(email, name, password string) (*domain.User, error) {
-	user := &domain.User{
+	// check for existing email prior to creating new user
+	user, err := s.userRepo.FindByEmail(email)
+	if err != nil && err != domain.ErrUserNotFound {
+		return nil, err
+	}
+
+	if user != nil {
+		return nil, domain.ErrUserDuplicated
+	}
+
+	user = &domain.User{
 		Email: email,
 		Name:  name,
 	}
 
-	var err error
 	user.Password, err = s.passwordHasher.Hash(password)
 	if err != nil {
 		return nil, err
@@ -73,6 +82,18 @@ func (s *service) Update(userID uint, name, newPassword, oldPassword *string) (*
 	if name != nil {
 		u.Name = *name
 	}
+
+	return s.userRepo.Update(u)
+}
+
+// UpdateStorageToken implementation
+func (s *service) UpdateStorageToken(userID uint, dropboxToken *string) (*domain.User, error) {
+	u, err := s.userRepo.FindByID(userID)
+	if err != nil {
+		return nil, err
+	}
+
+	u.DropboxToken = dropboxToken
 
 	return s.userRepo.Update(u)
 }

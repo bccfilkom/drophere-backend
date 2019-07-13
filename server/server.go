@@ -71,12 +71,13 @@ func main() {
 	router := chi.NewRouter()
 
 	// A good base middleware stack
-	router.Use(authenticator.Middleware())
 	router.Use(cors.New(cors.Options{
-		AllowedOrigins:   []string{"http://localhost:8080"},
+		AllowedOrigins:   []string{"*"},
 		AllowCredentials: true,
-		Debug:            false,
+		AllowedHeaders:   []string{"*"},
+		Debug:            !false,
 	}).Handler)
+	router.Use(authenticator.Middleware())
 	router.Use(middleware.RequestID)
 	router.Use(middleware.RealIP)
 	router.Use(middleware.Logger)

@@ -51,6 +51,7 @@ func (r *Resolver) Query() QueryResolver {
 
 type mutationResolver struct{ *Resolver }
 
+// Register resolver
 func (r *mutationResolver) Register(ctx context.Context, email string, password string, name string) (*Token, error) {
 	user, err := r.userSvc.Register(email, name, password)
 	if err != nil {
@@ -189,6 +190,34 @@ func (r *mutationResolver) CheckLinkPassword(ctx context.Context, linkID int, pa
 	return &Message{Message: msg}, nil
 }
 
+func (r *mutationResolver) ConnectStorageProvider(ctx context.Context, providerKey int, providerToken string) (*Message, error) {
+	user := r.authenticator.GetAuthenticatedUser(ctx)
+	if user == nil {
+		return nil, errUnauthenticated
+	}
+
+	_, err := r.userSvc.UpdateStorageToken(user.ID, &providerToken)
+	if err != nil {
+		return nil, err
+	}
+
+	return &Message{Message: "Dropbox successfully connected"}, nil
+}
+
+func (r *mutationResolver) DisconnectStorageProvider(ctx context.Context, providerKey int) (*Message, error) {
+	user := r.authenticator.GetAuthenticatedUser(ctx)
+	if user == nil {
+		return nil, errUnauthenticated
+	}
+
+	_, err := r.userSvc.UpdateStorageToken(user.ID, nil)
+	if err != nil {
+		return nil, err
+	}
+
+	return &Message{Message: "Dropbox disconnected"}, nil
+}
+
 type queryResolver struct{ *Resolver }
 
 func (r *queryResolver) Links(ctx context.Context) ([]*Link, error) {
@@ -220,10 +249,19 @@ func (r *queryResolver) Me(ctx context.Context) (*User, error) {
 	if user == nil {
 		return nil, errUnauthenticated
 	}
+
+	var dropboxEmail *string
+
+	if user.DropboxToken != nil {
+		dropboxEmail = &user.Email
+	}
+
 	return &User{
-		ID:    int(user.ID),
-		Email: user.Email,
-		Name:  user.Name,
+		ID:                int(user.ID),
+		Email:             user.Email,
+		Name:              user.Name,
+		DropboxAuthorized: user.DropboxToken != nil,
+		DropboxEmail:      dropboxEmail,
 	}, nil
 }
 func (r *queryResolver) Link(ctx context.Context, slug string) (*Link, error) {

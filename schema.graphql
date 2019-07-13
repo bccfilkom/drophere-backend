@@ -4,9 +4,9 @@ type User {
   id: Int!
   email: String!
   name: String!
-  dropboxauth: Boolean
-  dropboxemail: String
-  dropboxavatar: String
+  dropboxAuthorized: Boolean!
+  dropboxEmail: String
+  dropboxAvatar: String
 }
 type Token {
   loginToken: String!
@@ -35,6 +35,8 @@ type Mutation {
   login(email: String!, password: String!): Token
   updatePassword(oldPassword: String!, newPassword: String!): Message
   updateProfile(newName: String!): Message
+  connectStorageProvider(providerKey: Int!, providerToken: String!): Message
+  disconnectStorageProvider(providerKey: Int!): Message
   createLink(title:  String!,slug: String!, description: String, deadline: Time, password: String): Link
   updateLink(linkId: Int!, title:  String!, slug: String!, description: String, deadline: Time, password: String): Message
   deleteLink(linkId: Int!): Message

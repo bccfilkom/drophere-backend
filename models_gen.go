@@ -24,10 +24,10 @@ type Token struct {
 }
 
 type User struct {
-	ID            int     `json:"id"`
-	Email         string  `json:"email"`
-	Name          string  `json:"name"`
-	Dropboxauth   *bool   `json:"dropboxauth"`
-	Dropboxemail  *string `json:"dropboxemail"`
-	Dropboxavatar *string `json:"dropboxavatar"`
+	ID                int     `json:"id"`
+	Email             string  `json:"email"`
+	Name              string  `json:"name"`
+	DropboxAuthorized bool    `json:"dropboxAuthorized"`
+	DropboxEmail      *string `json:"dropboxEmail"`
+	DropboxAvatar     *string `json:"dropboxAvatar"`
 }

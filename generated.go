@@ -56,14 +56,16 @@ type ComplexityRoot struct {
 	}
 
 	Mutation struct {
-		CheckLinkPassword func(childComplexity int, linkID int, password string) int
-		CreateLink        func(childComplexity int, title string, slug string, description *string, deadline *time.Time, password *string) int
-		DeleteLink        func(childComplexity int, linkID int) int
-		Login             func(childComplexity int, email string, password string) int
-		Register          func(childComplexity int, email string, password string, name string) int
-		UpdateLink        func(childComplexity int, linkID int, title string, slug string, description *string, deadline *time.Time, password *string) int
-		UpdatePassword    func(childComplexity int, oldPassword string, newPassword string) int
-		UpdateProfile     func(childComplexity int, newName string) int
+		CheckLinkPassword         func(childComplexity int, linkID int, password string) int
+		ConnectStorageProvider    func(childComplexity int, providerKey int, providerToken string) int
+		CreateLink                func(childComplexity int, title string, slug string, description *string, deadline *time.Time, password *string) int
+		DeleteLink                func(childComplexity int, linkID int) int
+		DisconnectStorageProvider func(childComplexity int, providerKey int) int
+		Login                     func(childComplexity int, email string, password string) int
+		Register                  func(childComplexity int, email string, password string, name string) int
+		UpdateLink                func(childComplexity int, linkID int, title string, slug string, description *string, deadline *time.Time, password *string) int
+		UpdatePassword            func(childComplexity int, oldPassword string, newPassword string) int
+		UpdateProfile             func(childComplexity int, newName string) int
 	}
 
 	Query struct {
@@ -77,12 +79,12 @@ type ComplexityRoot struct {
 	}
 
 	User struct {
-		Dropboxauth   func(childComplexity int) int
-		Dropboxavatar func(childComplexity int) int
-		Dropboxemail  func(childComplexity int) int
-		Email         func(childComplexity int) int
-		ID            func(childComplexity int) int
-		Name          func(childComplexity int) int
+		DropboxAuthorized func(childComplexity int) int
+		DropboxAvatar     func(childComplexity int) int
+		DropboxEmail      func(childComplexity int) int
+		Email             func(childComplexity int) int
+		ID                func(childComplexity int) int
+		Name              func(childComplexity int) int
 	}
 }
 
@@ -91,6 +93,8 @@ type MutationResolver interface {
 	Login(ctx context.Context, email string, password string) (*Token, error)
 	UpdatePassword(ctx context.Context, oldPassword string, newPassword string) (*Message, error)
 	UpdateProfile(ctx context.Context, newName string) (*Message, error)
+	ConnectStorageProvider(ctx context.Context, providerKey int, providerToken string) (*Message, error)
+	DisconnectStorageProvider(ctx context.Context, providerKey int) (*Message, error)
 	CreateLink(ctx context.Context, title string, slug string, description *string, deadline *time.Time, password *string) (*Link, error)
 	UpdateLink(ctx context.Context, linkID int, title string, slug string, description *string, deadline *time.Time, password *string) (*Message, error)
 	DeleteLink(ctx context.Context, linkID int) (*Message, error)
@@ -178,6 +182,18 @@ func (e *executableSchema) Complexity(typeName, field string, childComplexity in
 
 		return e.complexity.Mutation.CheckLinkPassword(childComplexity, args["linkId"].(int), args["password"].(string)), true
 
+	case "Mutation.connectStorageProvider":
+		if e.complexity.Mutation.ConnectStorageProvider == nil {
+			break
+		}
+
+		args, err := ec.field_Mutation_connectStorageProvider_args(context.TODO(), rawArgs)
+		if err != nil {
+			return 0, false
+		}
+
+		return e.complexity.Mutation.ConnectStorageProvider(childComplexity, args["providerKey"].(int), args["providerToken"].(string)), true
+
 	case "Mutation.createLink":
 		if e.complexity.Mutation.CreateLink == nil {
 			break
@@ -201,6 +217,18 @@ func (e *executableSchema) Complexity(typeName, field string, childComplexity in
 		}
 
 		return e.complexity.Mutation.DeleteLink(childComplexity, args["linkId"].(int)), true
+
+	case "Mutation.disconnectStorageProvider":
+		if e.complexity.Mutation.DisconnectStorageProvider == nil {
+			break
+		}
+
+		args, err := ec.field_Mutation_disconnectStorageProvider_args(context.TODO(), rawArgs)
+		if err != nil {
+			return 0, false
+		}
+
+		return e.complexity.Mutation.DisconnectStorageProvider(childComplexity, args["providerKey"].(int)), true
 
 	case "Mutation.login":
 		if e.complexity.Mutation.Login == nil {
@@ -295,26 +323,26 @@ func (e *executableSchema) Complexity(typeName, field string, childComplexity in
 
 		return e.complexity.Token.LoginToken(childComplexity), true
 
-	case "User.dropboxauth":
-		if e.complexity.User.Dropboxauth == nil {
+	case "User.dropboxAuthorized":
+		if e.complexity.User.DropboxAuthorized == nil {
 			break
 		}
 
-		return e.complexity.User.Dropboxauth(childComplexity), true
+		return e.complexity.User.DropboxAuthorized(childComplexity), true
 
-	case "User.dropboxavatar":
-		if e.complexity.User.Dropboxavatar == nil {
+	case "User.dropboxAvatar":
+		if e.complexity.User.DropboxAvatar == nil {
 			break
 		}
 
-		return e.complexity.User.Dropboxavatar(childComplexity), true
+		return e.complexity.User.DropboxAvatar(childComplexity), true
 
-	case "User.dropboxemail":
-		if e.complexity.User.Dropboxemail == nil {
+	case "User.dropboxEmail":
+		if e.complexity.User.DropboxEmail == nil {
 			break
 		}
 
-		return e.complexity.User.Dropboxemail(childComplexity), true
+		return e.complexity.User.DropboxEmail(childComplexity), true
 
 	case "User.email":
 		if e.complexity.User.Email == nil {
@@ -420,9 +448,9 @@ type User {
   id: Int!
   email: String!
   name: String!
-  dropboxauth: Boolean
-  dropboxemail: String
-  dropboxavatar: String
+  dropboxAuthorized: Boolean!
+  dropboxEmail: String
+  dropboxAvatar: String
 }
 type Token {
   loginToken: String!
@@ -451,6 +479,9 @@ type Mutation {
   login(email: String!, password: String!): Token
   updatePassword(oldPassword: String!, newPassword: String!): Message
   updateProfile(newName: String!): Message
+  # updateUserStorage(dropboxToken: String): Message
+  connectStorageProvider(providerKey: Int!, providerToken: String!): Message
+  disconnectStorageProvider(providerKey: Int!): Message
   createLink(title:  String!,slug: String!, description: String, deadline: Time, password: String): Link
   updateLink(linkId: Int!, title:  String!, slug: String!, description: String, deadline: Time, password: String): Message
   deleteLink(linkId: Int!): Message
@@ -483,6 +514,28 @@ func (ec *executionContext) field_Mutation_checkLinkPassword_args(ctx context.Co
 		}
 	}
 	args["password"] = arg1
+	return args, nil
+}
+
+func (ec *executionContext) field_Mutation_connectStorageProvider_args(ctx context.Context, rawArgs map[string]interface{}) (map[string]interface{}, error) {
+	var err error
+	args := map[string]interface{}{}
+	var arg0 int
+	if tmp, ok := rawArgs["providerKey"]; ok {
+		arg0, err = ec.unmarshalNInt2int(ctx, tmp)
+		if err != nil {
+			return nil, err
+		}
+	}
+	args["providerKey"] = arg0
+	var arg1 string
+	if tmp, ok := rawArgs["providerToken"]; ok {
+		arg1, err = ec.unmarshalNString2string(ctx, tmp)
+		if err != nil {
+			return nil, err
+		}
+	}
+	args["providerToken"] = arg1
 	return args, nil
 }
 
@@ -543,6 +596,20 @@ func (ec *executionContext) field_Mutation_deleteLink_args(ctx context.Context, 
 		}
 	}
 	args["linkId"] = arg0
+	return args, nil
+}
+
+func (ec *executionContext) field_Mutation_disconnectStorageProvider_args(ctx context.Context, rawArgs map[string]interface{}) (map[string]interface{}, error) {
+	var err error
+	args := map[string]interface{}{}
+	var arg0 int
+	if tmp, ok := rawArgs["providerKey"]; ok {
+		arg0, err = ec.unmarshalNInt2int(ctx, tmp)
+		if err != nil {
+			return nil, err
+		}
+	}
+	args["providerKey"] = arg0
 	return args, nil
 }
 
@@ -1052,6 +1119,68 @@ func (ec *executionContext) _Mutation_updateProfile(ctx context.Context, field g
 	return ec.marshalOMessage2ᚖgithubᚗcomᚋbccfilkomᚋdrophereᚑgoᚐMessage(ctx, field.Selections, res)
 }
 
+func (ec *executionContext) _Mutation_connectStorageProvider(ctx context.Context, field graphql.CollectedField) graphql.Marshaler {
+	ctx = ec.Tracer.StartFieldExecution(ctx, field)
+	defer func() { ec.Tracer.EndFieldExecution(ctx) }()
+	rctx := &graphql.ResolverContext{
+		Object:   "Mutation",
+		Field:    field,
+		Args:     nil,
+		IsMethod: true,
+	}
+	ctx = graphql.WithResolverContext(ctx, rctx)
+	rawArgs := field.ArgumentMap(ec.Variables)
+	args, err := ec.field_Mutation_connectStorageProvider_args(ctx, rawArgs)
+	if err != nil {
+		ec.Error(ctx, err)
+		return graphql.Null
+	}
+	rctx.Args = args
+	ctx = ec.Tracer.StartFieldResolverExecution(ctx, rctx)
+	resTmp := ec.FieldMiddleware(ctx, nil, func(rctx context.Context) (interface{}, error) {
+		ctx = rctx // use context from middleware stack in children
+		return ec.resolvers.Mutation().ConnectStorageProvider(rctx, args["providerKey"].(int), args["providerToken"].(string))
+	})
+	if resTmp == nil {
+		return graphql.Null
+	}
+	res := resTmp.(*Message)
+	rctx.Result = res
+	ctx = ec.Tracer.StartFieldChildExecution(ctx)
+	return ec.marshalOMessage2ᚖgithubᚗcomᚋbccfilkomᚋdrophereᚑgoᚐMessage(ctx, field.Selections, res)
+}
+
+func (ec *executionContext) _Mutation_disconnectStorageProvider(ctx context.Context, field graphql.CollectedField) graphql.Marshaler {
+	ctx = ec.Tracer.StartFieldExecution(ctx, field)
+	defer func() { ec.Tracer.EndFieldExecution(ctx) }()
+	rctx := &graphql.ResolverContext{
+		Object:   "Mutation",
+		Field:    field,
+		Args:     nil,
+		IsMethod: true,
+	}
+	ctx = graphql.WithResolverContext(ctx, rctx)
+	rawArgs := field.ArgumentMap(ec.Variables)
+	args, err := ec.field_Mutation_disconnectStorageProvider_args(ctx, rawArgs)
+	if err != nil {
+		ec.Error(ctx, err)
+		return graphql.Null
+	}
+	rctx.Args = args
+	ctx = ec.Tracer.StartFieldResolverExecution(ctx, rctx)
+	resTmp := ec.FieldMiddleware(ctx, nil, func(rctx context.Context) (interface{}, error) {
+		ctx = rctx // use context from middleware stack in children
+		return ec.resolvers.Mutation().DisconnectStorageProvider(rctx, args["providerKey"].(int))
+	})
+	if resTmp == nil {
+		return graphql.Null
+	}
+	res := resTmp.(*Message)
+	rctx.Result = res
+	ctx = ec.Tracer.StartFieldChildExecution(ctx)
+	return ec.marshalOMessage2ᚖgithubᚗcomᚋbccfilkomᚋdrophereᚑgoᚐMessage(ctx, field.Selections, res)
+}
+
 func (ec *executionContext) _Mutation_createLink(ctx context.Context, field graphql.CollectedField) graphql.Marshaler {
 	ctx = ec.Tracer.StartFieldExecution(ctx, field)
 	defer func() { ec.Tracer.EndFieldExecution(ctx) }()
@@ -1418,7 +1547,7 @@ func (ec *executionContext) _User_name(ctx context.Context, field graphql.Collec
 	return ec.marshalNString2string(ctx, field.Selections, res)
 }
 
-func (ec *executionContext) _User_dropboxauth(ctx context.Context, field graphql.CollectedField, obj *User) graphql.Marshaler {
+func (ec *executionContext) _User_dropboxAuthorized(ctx context.Context, field graphql.CollectedField, obj *User) graphql.Marshaler {
 	ctx = ec.Tracer.StartFieldExecution(ctx, field)
 	defer func() { ec.Tracer.EndFieldExecution(ctx) }()
 	rctx := &graphql.ResolverContext{
@@ -1431,18 +1560,21 @@ func (ec *executionContext) _User_dropboxauth(ctx context.Context, field graphql
 	ctx = ec.Tracer.StartFieldResolverExecution(ctx, rctx)
 	resTmp := ec.FieldMiddleware(ctx, obj, func(rctx context.Context) (interface{}, error) {
 		ctx = rctx // use context from middleware stack in children
-		return obj.Dropboxauth, nil
+		return obj.DropboxAuthorized, nil
 	})
 	if resTmp == nil {
+		if !ec.HasError(rctx) {
+			ec.Errorf(ctx, "must not be null")
+		}
 		return graphql.Null
 	}
-	res := resTmp.(*bool)
+	res := resTmp.(bool)
 	rctx.Result = res
 	ctx = ec.Tracer.StartFieldChildExecution(ctx)
-	return ec.marshalOBoolean2ᚖbool(ctx, field.Selections, res)
+	return ec.marshalNBoolean2bool(ctx, field.Selections, res)
 }
 
-func (ec *executionContext) _User_dropboxemail(ctx context.Context, field graphql.CollectedField, obj *User) graphql.Marshaler {
+func (ec *executionContext) _User_dropboxEmail(ctx context.Context, field graphql.CollectedField, obj *User) graphql.Marshaler {
 	ctx = ec.Tracer.StartFieldExecution(ctx, field)
 	defer func() { ec.Tracer.EndFieldExecution(ctx) }()
 	rctx := &graphql.ResolverContext{
@@ -1455,7 +1587,7 @@ func (ec *executionContext) _User_dropboxemail(ctx context.Context, field graphq
 	ctx = ec.Tracer.StartFieldResolverExecution(ctx, rctx)
 	resTmp := ec.FieldMiddleware(ctx, obj, func(rctx context.Context) (interface{}, error) {
 		ctx = rctx // use context from middleware stack in children
-		return obj.Dropboxemail, nil
+		return obj.DropboxEmail, nil
 	})
 	if resTmp == nil {
 		return graphql.Null
@@ -1466,7 +1598,7 @@ func (ec *executionContext) _User_dropboxemail(ctx context.Context, field graphq
 	return ec.marshalOString2ᚖstring(ctx, field.Selections, res)
 }
 
-func (ec *executionContext) _User_dropboxavatar(ctx context.Context, field graphql.CollectedField, obj *User) graphql.Marshaler {
+func (ec *executionContext) _User_dropboxAvatar(ctx context.Context, field graphql.CollectedField, obj *User) graphql.Marshaler {
 	ctx = ec.Tracer.StartFieldExecution(ctx, field)
 	defer func() { ec.Tracer.EndFieldExecution(ctx) }()
 	rctx := &graphql.ResolverContext{
@@ -1479,7 +1611,7 @@ func (ec *executionContext) _User_dropboxavatar(ctx context.Context, field graph
 	ctx = ec.Tracer.StartFieldResolverExecution(ctx, rctx)
 	resTmp := ec.FieldMiddleware(ctx, obj, func(rctx context.Context) (interface{}, error) {
 		ctx = rctx // use context from middleware stack in children
-		return obj.Dropboxavatar, nil
+		return obj.DropboxAvatar, nil
 	})
 	if resTmp == nil {
 		return graphql.Null
@@ -2422,6 +2554,10 @@ func (ec *executionContext) _Mutation(ctx context.Context, sel ast.SelectionSet)
 			out.Values[i] = ec._Mutation_updatePassword(ctx, field)
 		case "updateProfile":
 			out.Values[i] = ec._Mutation_updateProfile(ctx, field)
+		case "connectStorageProvider":
+			out.Values[i] = ec._Mutation_connectStorageProvider(ctx, field)
+		case "disconnectStorageProvider":
+			out.Values[i] = ec._Mutation_disconnectStorageProvider(ctx, field)
 		case "createLink":
 			out.Values[i] = ec._Mutation_createLink(ctx, field)
 		case "updateLink":
@@ -2557,12 +2693,15 @@ func (ec *executionContext) _User(ctx context.Context, sel ast.SelectionSet, obj
 			if out.Values[i] == graphql.Null {
 				invalids++
 			}
-		case "dropboxauth":
-			out.Values[i] = ec._User_dropboxauth(ctx, field, obj)
-		case "dropboxemail":
-			out.Values[i] = ec._User_dropboxemail(ctx, field, obj)
-		case "dropboxavatar":
-			out.Values[i] = ec._User_dropboxavatar(ctx, field, obj)
+		case "dropboxAuthorized":
+			out.Values[i] = ec._User_dropboxAuthorized(ctx, field, obj)
+			if out.Values[i] == graphql.Null {
+				invalids++
+			}
+		case "dropboxEmail":
+			out.Values[i] = ec._User_dropboxEmail(ctx, field, obj)
+		case "dropboxAvatar":
+			out.Values[i] = ec._User_dropboxAvatar(ctx, field, obj)
 		default:
 			panic("unknown field " + strconv.Quote(field.Name))
 		}

@@ -40,7 +40,8 @@ func TestRegister(t *testing.T) {
 	}
 
 	tests := []test{
-		{email: "user@drophere.link", name: "User", password: "123456", wantErr: nil},
+		{email: "user@drophere.link", name: "User", password: "123456", wantErr: domain.ErrUserDuplicated},
+		{email: "new_user@drophere.link", name: "New User", password: "123456", wantErr: nil},
 	}
 
 	userSvc := user.NewService(newUserRepo(), authenticator, dummyHasher)
@@ -76,6 +77,45 @@ func TestAuth(t *testing.T) {
 		}
 		if gotCreds != nil && gotCreds.Token != tc.wantCreds.Token {
 			t.Fatalf("test %d: expected: %v, got: %v", i, tc.wantCreds.Token, gotCreds.Token)
+		}
+	}
+}
+
+func TestUpdateStorageToken(t *testing.T) {
+	type test struct {
+		userID       uint
+		dropboxToken *string
+		wantUser     *domain.User
+		wantErr      error
+	}
+
+	userRepo := newUserRepo()
+	u, _ := userRepo.FindByID(1)
+
+	tests := []test{
+		{userID: 123, wantErr: domain.ErrUserNotFound, wantUser: nil},
+		{
+			userID:       1,
+			dropboxToken: str2ptr("my_dropbox_token_here"),
+			wantUser: &domain.User{
+				ID:           u.ID,
+				Email:        u.Email,
+				Name:         u.Name,
+				Password:     u.Password,
+				DropboxToken: str2ptr("my_dropbox_token_here"),
+			},
+		},
+	}
+
+	userSvc := user.NewService(userRepo, authenticator, dummyHasher)
+
+	for i, tc := range tests {
+		gotUser, gotErr := userSvc.UpdateStorageToken(tc.userID, tc.dropboxToken)
+		if gotErr != tc.wantErr {
+			t.Fatalf("test %d: expected: %v, got: %v", i, tc.wantErr, gotErr)
+		}
+		if !reflect.DeepEqual(gotUser, tc.wantUser) {
+			t.Fatalf("test %d: expected: %v, got: %v", i, tc.wantUser, gotUser)
 		}
 	}
 }

@@ -7,11 +7,11 @@ import (
 
 var (
 	// ErrLinkDuplicatedSlug error
-	ErrLinkDuplicatedSlug = errors.New("link: duplicated slug")
+	ErrLinkDuplicatedSlug = errors.New("Duplicated slug")
 	// ErrLinkInvalidPassword error
-	ErrLinkInvalidPassword = errors.New("link: invalid password")
+	ErrLinkInvalidPassword = errors.New("Invalid password")
 	// ErrLinkNotFound error
-	ErrLinkNotFound = errors.New("link: not found")
+	ErrLinkNotFound = errors.New("Not found")
 )
 
 // Link domain model
