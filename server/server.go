@@ -4,16 +4,22 @@ import (
 	"fmt"
 	"log"
 	"net/http"
+	"path/filepath"
 	"time"
 
-	"github.com/99designs/gqlgen/handler"
+	htmlTemplate "html/template"
+	textTemplate "text/template"
+
 	drophere_go "github.com/bccfilkom/drophere-go"
 	"github.com/bccfilkom/drophere-go/domain/link"
 	"github.com/bccfilkom/drophere-go/domain/user"
 	"github.com/bccfilkom/drophere-go/infrastructure/auth"
 	"github.com/bccfilkom/drophere-go/infrastructure/database/mysql"
 	"github.com/bccfilkom/drophere-go/infrastructure/hasher"
+	"github.com/bccfilkom/drophere-go/infrastructure/mailer"
+	"github.com/bccfilkom/drophere-go/infrastructure/stringgenerator"
 
+	"github.com/99designs/gqlgen/handler"
 	"github.com/go-chi/chi"
 	"github.com/go-chi/chi/middleware"
 	"github.com/rs/cors"
@@ -60,9 +66,33 @@ func main() {
 		userRepo,
 	)
 	bcryptHasher := hasher.NewBcryptHasher()
+	mailtrap := mailer.NewMailtrap(
+		viper.GetString("mailer.mailtrap.username"),
+		viper.GetString("mailer.mailtrap.password"),
+	)
+	uuidGenerator := stringgenerator.NewUUID()
+
+	basePath := viper.GetString("app.templatePath")
+	htmlTemplates, err := htmlTemplate.ParseGlob(filepath.Join(basePath, "html", "*.html"))
+	if err != nil {
+		panic(err)
+	}
+
+	textTemplates, err := textTemplate.ParseGlob(filepath.Join(basePath, "text", "*.txt"))
+	if err != nil {
+		panic(err)
+	}
 
 	// initialize services
-	userSvc := user.NewService(userRepo, authenticator, bcryptHasher)
+	userSvc := user.NewService(
+		userRepo,
+		authenticator,
+		mailtrap,
+		bcryptHasher,
+		uuidGenerator,
+		htmlTemplates,
+		textTemplates,
+	)
 	linkSvc := link.NewService(linkRepo, bcryptHasher)
 
 	resolver := drophere_go.NewResolver(userSvc, authenticator, linkSvc)

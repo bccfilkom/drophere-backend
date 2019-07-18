@@ -1,6 +1,10 @@
 package inmemory
 
-import "github.com/bccfilkom/drophere-go/domain"
+import (
+	"time"
+
+	"github.com/bccfilkom/drophere-go/domain"
+)
 
 // DB struct
 type DB struct {
@@ -15,10 +19,34 @@ func New() *DB {
 	return db
 }
 
+func str2ptr(s string) *string {
+	return &s
+}
+
+func time2ptr(t time.Time) *time.Time {
+	return &t
+}
+
 func (db *DB) populate() {
 	db.users = []domain.User{
 		{ID: 1, Email: "user@drophere.link", Name: "User", Password: "123456", DropboxToken: nil, DriveToken: nil},
 		{ID: 357, Email: "user_357@drophere.link", Name: "User 357", Password: "123456", DropboxToken: nil, DriveToken: nil},
+		{
+			ID:                         6631,
+			Email:                      "reset+pwd+expired_token@drophere.link",
+			Name:                       "Token is set but expired",
+			Password:                   "123456",
+			RecoverPasswordToken:       str2ptr("expired_recover_password_token"),
+			RecoverPasswordTokenExpiry: time2ptr(time.Now().Add(time.Minute * -30)),
+		},
+		{
+			ID:                         12368,
+			Email:                      "reset+pwd@drophere.link",
+			Name:                       "Token is set",
+			Password:                   "123456",
+			RecoverPasswordToken:       str2ptr("recover_password_token"),
+			RecoverPasswordTokenExpiry: time2ptr(time.Now().Add(time.Minute * 30)),
+		},
 	}
 
 	db.links = []domain.Link{

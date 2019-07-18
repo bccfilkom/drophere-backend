@@ -10,6 +10,7 @@ type User {
 }
 type Token {
   loginToken: String!
+  #expiry: Time
 }
 type Link {
   id: Int!
@@ -33,6 +34,8 @@ type Mutation {
   # Register new user
   register(email: String!, password: String!, name: String!): Token
   login(email: String!, password: String!): Token
+  requestPasswordRecovery(email: String!): Message
+  recoverPassword(email: String!, recoverToken: String!, newPassword: String!): Token
   updatePassword(oldPassword: String!, newPassword: String!): Message
   updateProfile(newName: String!): Message
   connectStorageProvider(providerKey: Int!, providerToken: String!): Message

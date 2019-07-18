@@ -62,7 +62,9 @@ type ComplexityRoot struct {
 		DeleteLink                func(childComplexity int, linkID int) int
 		DisconnectStorageProvider func(childComplexity int, providerKey int) int
 		Login                     func(childComplexity int, email string, password string) int
+		RecoverPassword           func(childComplexity int, email string, recoverToken string, newPassword string) int
 		Register                  func(childComplexity int, email string, password string, name string) int
+		RequestPasswordRecovery   func(childComplexity int, email string) int
 		UpdateLink                func(childComplexity int, linkID int, title string, slug string, description *string, deadline *time.Time, password *string) int
 		UpdatePassword            func(childComplexity int, oldPassword string, newPassword string) int
 		UpdateProfile             func(childComplexity int, newName string) int
@@ -91,6 +93,8 @@ type ComplexityRoot struct {
 type MutationResolver interface {
 	Register(ctx context.Context, email string, password string, name string) (*Token, error)
 	Login(ctx context.Context, email string, password string) (*Token, error)
+	RequestPasswordRecovery(ctx context.Context, email string) (*Message, error)
+	RecoverPassword(ctx context.Context, email string, recoverToken string, newPassword string) (*Token, error)
 	UpdatePassword(ctx context.Context, oldPassword string, newPassword string) (*Message, error)
 	UpdateProfile(ctx context.Context, newName string) (*Message, error)
 	ConnectStorageProvider(ctx context.Context, providerKey int, providerToken string) (*Message, error)
@@ -242,6 +246,18 @@ func (e *executableSchema) Complexity(typeName, field string, childComplexity in
 
 		return e.complexity.Mutation.Login(childComplexity, args["email"].(string), args["password"].(string)), true
 
+	case "Mutation.recoverPassword":
+		if e.complexity.Mutation.RecoverPassword == nil {
+			break
+		}
+
+		args, err := ec.field_Mutation_recoverPassword_args(context.TODO(), rawArgs)
+		if err != nil {
+			return 0, false
+		}
+
+		return e.complexity.Mutation.RecoverPassword(childComplexity, args["email"].(string), args["recoverToken"].(string), args["newPassword"].(string)), true
+
 	case "Mutation.register":
 		if e.complexity.Mutation.Register == nil {
 			break
@@ -253,6 +269,18 @@ func (e *executableSchema) Complexity(typeName, field string, childComplexity in
 		}
 
 		return e.complexity.Mutation.Register(childComplexity, args["email"].(string), args["password"].(string), args["name"].(string)), true
+
+	case "Mutation.requestPasswordRecovery":
+		if e.complexity.Mutation.RequestPasswordRecovery == nil {
+			break
+		}
+
+		args, err := ec.field_Mutation_requestPasswordRecovery_args(context.TODO(), rawArgs)
+		if err != nil {
+			return 0, false
+		}
+
+		return e.complexity.Mutation.RequestPasswordRecovery(childComplexity, args["email"].(string)), true
 
 	case "Mutation.updateLink":
 		if e.complexity.Mutation.UpdateLink == nil {
@@ -477,9 +505,10 @@ type Mutation {
   # Register new user
   register(email: String!, password: String!, name: String!): Token
   login(email: String!, password: String!): Token
+  requestPasswordRecovery(email: String!): Message
+  recoverPassword(email: String!, recoverToken: String!, newPassword: String!): Token
   updatePassword(oldPassword: String!, newPassword: String!): Message
   updateProfile(newName: String!): Message
-  # updateUserStorage(dropboxToken: String): Message
   connectStorageProvider(providerKey: Int!, providerToken: String!): Message
   disconnectStorageProvider(providerKey: Int!): Message
   createLink(title:  String!,slug: String!, description: String, deadline: Time, password: String): Link
@@ -635,6 +664,36 @@ func (ec *executionContext) field_Mutation_login_args(ctx context.Context, rawAr
 	return args, nil
 }
 
+func (ec *executionContext) field_Mutation_recoverPassword_args(ctx context.Context, rawArgs map[string]interface{}) (map[string]interface{}, error) {
+	var err error
+	args := map[string]interface{}{}
+	var arg0 string
+	if tmp, ok := rawArgs["email"]; ok {
+		arg0, err = ec.unmarshalNString2string(ctx, tmp)
+		if err != nil {
+			return nil, err
+		}
+	}
+	args["email"] = arg0
+	var arg1 string
+	if tmp, ok := rawArgs["recoverToken"]; ok {
+		arg1, err = ec.unmarshalNString2string(ctx, tmp)
+		if err != nil {
+			return nil, err
+		}
+	}
+	args["recoverToken"] = arg1
+	var arg2 string
+	if tmp, ok := rawArgs["newPassword"]; ok {
+		arg2, err = ec.unmarshalNString2string(ctx, tmp)
+		if err != nil {
+			return nil, err
+		}
+	}
+	args["newPassword"] = arg2
+	return args, nil
+}
+
 func (ec *executionContext) field_Mutation_register_args(ctx context.Context, rawArgs map[string]interface{}) (map[string]interface{}, error) {
 	var err error
 	args := map[string]interface{}{}
@@ -662,6 +721,20 @@ func (ec *executionContext) field_Mutation_register_args(ctx context.Context, ra
 		}
 	}
 	args["name"] = arg2
+	return args, nil
+}
+
+func (ec *executionContext) field_Mutation_requestPasswordRecovery_args(ctx context.Context, rawArgs map[string]interface{}) (map[string]interface{}, error) {
+	var err error
+	args := map[string]interface{}{}
+	var arg0 string
+	if tmp, ok := rawArgs["email"]; ok {
+		arg0, err = ec.unmarshalNString2string(ctx, tmp)
+		if err != nil {
+			return nil, err
+		}
+	}
+	args["email"] = arg0
 	return args, nil
 }
 
@@ -1047,6 +1120,68 @@ func (ec *executionContext) _Mutation_login(ctx context.Context, field graphql.C
 	resTmp := ec.FieldMiddleware(ctx, nil, func(rctx context.Context) (interface{}, error) {
 		ctx = rctx // use context from middleware stack in children
 		return ec.resolvers.Mutation().Login(rctx, args["email"].(string), args["password"].(string))
+	})
+	if resTmp == nil {
+		return graphql.Null
+	}
+	res := resTmp.(*Token)
+	rctx.Result = res
+	ctx = ec.Tracer.StartFieldChildExecution(ctx)
+	return ec.marshalOToken2ᚖgithubᚗcomᚋbccfilkomᚋdrophereᚑgoᚐToken(ctx, field.Selections, res)
+}
+
+func (ec *executionContext) _Mutation_requestPasswordRecovery(ctx context.Context, field graphql.CollectedField) graphql.Marshaler {
+	ctx = ec.Tracer.StartFieldExecution(ctx, field)
+	defer func() { ec.Tracer.EndFieldExecution(ctx) }()
+	rctx := &graphql.ResolverContext{
+		Object:   "Mutation",
+		Field:    field,
+		Args:     nil,
+		IsMethod: true,
+	}
+	ctx = graphql.WithResolverContext(ctx, rctx)
+	rawArgs := field.ArgumentMap(ec.Variables)
+	args, err := ec.field_Mutation_requestPasswordRecovery_args(ctx, rawArgs)
+	if err != nil {
+		ec.Error(ctx, err)
+		return graphql.Null
+	}
+	rctx.Args = args
+	ctx = ec.Tracer.StartFieldResolverExecution(ctx, rctx)
+	resTmp := ec.FieldMiddleware(ctx, nil, func(rctx context.Context) (interface{}, error) {
+		ctx = rctx // use context from middleware stack in children
+		return ec.resolvers.Mutation().RequestPasswordRecovery(rctx, args["email"].(string))
+	})
+	if resTmp == nil {
+		return graphql.Null
+	}
+	res := resTmp.(*Message)
+	rctx.Result = res
+	ctx = ec.Tracer.StartFieldChildExecution(ctx)
+	return ec.marshalOMessage2ᚖgithubᚗcomᚋbccfilkomᚋdrophereᚑgoᚐMessage(ctx, field.Selections, res)
+}
+
+func (ec *executionContext) _Mutation_recoverPassword(ctx context.Context, field graphql.CollectedField) graphql.Marshaler {
+	ctx = ec.Tracer.StartFieldExecution(ctx, field)
+	defer func() { ec.Tracer.EndFieldExecution(ctx) }()
+	rctx := &graphql.ResolverContext{
+		Object:   "Mutation",
+		Field:    field,
+		Args:     nil,
+		IsMethod: true,
+	}
+	ctx = graphql.WithResolverContext(ctx, rctx)
+	rawArgs := field.ArgumentMap(ec.Variables)
+	args, err := ec.field_Mutation_recoverPassword_args(ctx, rawArgs)
+	if err != nil {
+		ec.Error(ctx, err)
+		return graphql.Null
+	}
+	rctx.Args = args
+	ctx = ec.Tracer.StartFieldResolverExecution(ctx, rctx)
+	resTmp := ec.FieldMiddleware(ctx, nil, func(rctx context.Context) (interface{}, error) {
+		ctx = rctx // use context from middleware stack in children
+		return ec.resolvers.Mutation().RecoverPassword(rctx, args["email"].(string), args["recoverToken"].(string), args["newPassword"].(string))
 	})
 	if resTmp == nil {
 		return graphql.Null
@@ -2550,6 +2685,10 @@ func (ec *executionContext) _Mutation(ctx context.Context, sel ast.SelectionSet)
 			out.Values[i] = ec._Mutation_register(ctx, field)
 		case "login":
 			out.Values[i] = ec._Mutation_login(ctx, field)
+		case "requestPasswordRecovery":
+			out.Values[i] = ec._Mutation_requestPasswordRecovery(ctx, field)
+		case "recoverPassword":
+			out.Values[i] = ec._Mutation_recoverPassword(ctx, field)
 		case "updatePassword":
 			out.Values[i] = ec._Mutation_updatePassword(ctx, field)
 		case "updateProfile":

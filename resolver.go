@@ -64,6 +64,7 @@ func (r *mutationResolver) Register(ctx context.Context, email string, password 
 	}
 	return &Token{LoginToken: userCreds.Token}, nil
 }
+
 func (r *mutationResolver) Login(ctx context.Context, email string, password string) (*Token, error) {
 	userCreds, err := r.userSvc.Auth(email, password)
 	if err != nil {
@@ -71,6 +72,30 @@ func (r *mutationResolver) Login(ctx context.Context, email string, password str
 	}
 	return &Token{LoginToken: userCreds.Token}, nil
 }
+
+func (r *mutationResolver) RequestPasswordRecovery(ctx context.Context, email string) (*Message, error) {
+	err := r.userSvc.RequestPasswordRecovery(email)
+	if err != nil {
+		return nil, err
+	}
+
+	return &Message{"Recover Password instruction has been sent to your email"}, nil
+}
+
+func (r *mutationResolver) RecoverPassword(ctx context.Context, email, recoverToken, newPassword string) (*Token, error) {
+	err := r.userSvc.RecoverPassword(email, recoverToken, newPassword)
+	if err != nil {
+		return nil, err
+	}
+
+	userCreds, err := r.userSvc.Auth(email, newPassword)
+	if err != nil {
+		return nil, err
+	}
+
+	return &Token{LoginToken: userCreds.Token}, nil
+}
+
 func (r *mutationResolver) UpdatePassword(ctx context.Context, oldPassword string, newPassword string) (*Message, error) {
 	user := r.authenticator.GetAuthenticatedUser(ctx)
 	if user == nil {

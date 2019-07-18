@@ -12,16 +12,20 @@ var (
 	ErrUserInvalidPassword = errors.New("Invalid password")
 	// ErrUserNotFound error
 	ErrUserNotFound = errors.New("User not found")
+	// ErrUserPasswordRecoveryTokenExpired error
+	ErrUserPasswordRecoveryTokenExpired = errors.New("Password recovery token is expired")
 )
 
 // User model
 type User struct {
-	ID           uint
-	Email        string
-	Name         string
-	Password     string
-	DropboxToken *string
-	DriveToken   *string
+	ID                         uint
+	Email                      string
+	Name                       string
+	Password                   string
+	DropboxToken               *string
+	DriveToken                 *string
+	RecoverPasswordToken       *string
+	RecoverPasswordTokenExpiry *time.Time
 }
 
 // UserCredentials model
@@ -36,6 +40,8 @@ type UserService interface {
 	Auth(email, password string) (*UserCredentials, error)
 	Update(userID uint, name, password, oldPassword *string) (*User, error)
 	UpdateStorageToken(userID uint, dropboxToken *string) (*User, error)
+	RequestPasswordRecovery(email string) error
+	RecoverPassword(email, token, newPassword string) error
 }
 
 // UserRepository abstraction

@@ -1,25 +1,45 @@
 package user
 
 import (
+	"bytes"
+	"time"
+
+	htmlTemplate "html/template"
+	textTemplate "text/template"
+
 	"github.com/bccfilkom/drophere-go/domain"
 )
 
 type service struct {
-	userRepo       domain.UserRepository
-	authenticator  domain.Authenticator
-	passwordHasher domain.Hasher
+	userRepo        domain.UserRepository
+	authenticator   domain.Authenticator
+	mailer          domain.Mailer
+	passwordHasher  domain.Hasher
+	stringGenerator domain.StringGenerator
+
+	htmlTemplates *htmlTemplate.Template
+	textTemplates *textTemplate.Template
 }
 
 // NewService returns service instance
 func NewService(
 	userRepo domain.UserRepository,
 	authenticator domain.Authenticator,
+	mailer domain.Mailer,
 	passwordHasher domain.Hasher,
+	stringGenerator domain.StringGenerator,
+	htmlTemplates *htmlTemplate.Template,
+	textTemplates *textTemplate.Template,
 ) domain.UserService {
 	return &service{
-		userRepo:       userRepo,
-		authenticator:  authenticator,
-		passwordHasher: passwordHasher,
+		userRepo:        userRepo,
+		authenticator:   authenticator,
+		mailer:          mailer,
+		passwordHasher:  passwordHasher,
+		stringGenerator: stringGenerator,
+
+		htmlTemplates: htmlTemplates,
+		textTemplates: textTemplates,
 	}
 }
 
@@ -96,4 +116,105 @@ func (s *service) UpdateStorageToken(userID uint, dropboxToken *string) (*domain
 	u.DropboxToken = dropboxToken
 
 	return s.userRepo.Update(u)
+}
+
+// RequestPasswordRecovery implementation
+func (s *service) RequestPasswordRecovery(email string) error {
+	u, err := s.userRepo.FindByEmail(email)
+	if err != nil {
+		return err
+	}
+
+	token := s.stringGenerator.Generate()
+	tokenExpiry := time.Now().Add(time.Minute * 5)
+	u.RecoverPasswordToken = &token
+	u.RecoverPasswordTokenExpiry = &tokenExpiry
+
+	// save the user
+	u, err = s.userRepo.Update(u)
+	if err != nil {
+		return err
+	}
+
+	// send email
+	err = s.sendPasswordRecoveryTokenToEmail(
+		domain.MailAddress{
+			Address: u.Email,
+			Name:    u.Name,
+		},
+		"Recover Password",
+		token,
+	)
+	if err != nil {
+		return err
+	}
+
+	return nil
+}
+
+func (s *service) sendPasswordRecoveryTokenToEmail(to domain.MailAddress, subject, token string) error {
+
+	// preparing template
+	htmlTmpl := s.htmlTemplates.Lookup("request_password_recovery_html")
+	if htmlTmpl == nil {
+		return domain.ErrTemplateNotFound
+	}
+
+	textTmpl := s.textTemplates.Lookup("request_password_recovery_text")
+	if textTmpl == nil {
+		return domain.ErrTemplateNotFound
+	}
+
+	// preparing template content
+	messageData := map[string]string{
+		"Token": token,
+	}
+
+	// injecting data to template
+	htmlMessage := &bytes.Buffer{}
+	htmlTmpl.Execute(htmlMessage, messageData)
+
+	textMessage := &bytes.Buffer{}
+	textTmpl.Execute(textMessage, messageData)
+
+	// send email
+	return s.mailer.Send(
+		domain.MailAddress{
+			Address: "admin@drophere.link",
+			Name:    "Drophere Bot",
+		},
+		to,
+		subject,
+		textMessage.String(),
+		htmlMessage.String(),
+	)
+}
+
+func (s *service) RecoverPassword(email, token, newPassword string) error {
+	u, err := s.userRepo.FindByEmail(email)
+	if err != nil {
+		return err
+	}
+
+	if token == "" || u.RecoverPasswordToken == nil || *u.RecoverPasswordToken != token {
+		return domain.ErrUserNotFound
+	}
+
+	if u.RecoverPasswordTokenExpiry == nil || time.Now().After(*u.RecoverPasswordTokenExpiry) {
+		return domain.ErrUserPasswordRecoveryTokenExpired
+	}
+
+	u.Password, err = s.passwordHasher.Hash(newPassword)
+	if err != nil {
+		return err
+	}
+
+	u.RecoverPasswordToken, u.RecoverPasswordTokenExpiry = nil, nil
+
+	u, err = s.userRepo.Update(u)
+	if err != nil {
+		return err
+	}
+
+	return nil
 }
