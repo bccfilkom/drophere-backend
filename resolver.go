@@ -221,12 +221,12 @@ func (r *mutationResolver) ConnectStorageProvider(ctx context.Context, providerK
 		return nil, errUnauthenticated
 	}
 
-	_, err := r.userSvc.UpdateStorageToken(user.ID, &providerToken)
+	err := r.userSvc.ConnectStorageProvider(user.ID, uint(providerKey), providerToken)
 	if err != nil {
 		return nil, err
 	}
 
-	return &Message{Message: "Dropbox successfully connected"}, nil
+	return &Message{Message: "Storage Provider successfully connected"}, nil
 }
 
 func (r *mutationResolver) DisconnectStorageProvider(ctx context.Context, providerKey int) (*Message, error) {
@@ -235,12 +235,12 @@ func (r *mutationResolver) DisconnectStorageProvider(ctx context.Context, provid
 		return nil, errUnauthenticated
 	}
 
-	_, err := r.userSvc.UpdateStorageToken(user.ID, nil)
+	err := r.userSvc.DisconnectStorageProvider(user.ID, uint(providerKey))
 	if err != nil {
 		return nil, err
 	}
 
-	return &Message{Message: "Dropbox disconnected"}, nil
+	return &Message{Message: "Storage Provider disconnected"}, nil
 }
 
 type queryResolver struct{ *Resolver }

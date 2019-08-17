@@ -11,11 +11,14 @@ import (
 )
 
 type service struct {
-	userRepo        domain.UserRepository
-	authenticator   domain.Authenticator
-	mailer          domain.Mailer
-	passwordHasher  domain.Hasher
-	stringGenerator domain.StringGenerator
+	userRepo            domain.UserRepository
+	userStorageCredRepo domain.UserStorageCredentialRepository
+	authenticator       domain.Authenticator
+	mailer              domain.Mailer
+	passwordHasher      domain.Hasher
+	stringGenerator     domain.StringGenerator
+
+	storageProviderPool domain.StorageProviderPool
 
 	htmlTemplates *htmlTemplate.Template
 	textTemplates *textTemplate.Template
@@ -24,19 +27,24 @@ type service struct {
 // NewService returns service instance
 func NewService(
 	userRepo domain.UserRepository,
+	userStorageCredRepo domain.UserStorageCredentialRepository,
 	authenticator domain.Authenticator,
 	mailer domain.Mailer,
 	passwordHasher domain.Hasher,
 	stringGenerator domain.StringGenerator,
+	storageProviderPool domain.StorageProviderPool,
 	htmlTemplates *htmlTemplate.Template,
 	textTemplates *textTemplate.Template,
 ) domain.UserService {
 	return &service{
-		userRepo:        userRepo,
-		authenticator:   authenticator,
-		mailer:          mailer,
-		passwordHasher:  passwordHasher,
-		stringGenerator: stringGenerator,
+		userRepo:            userRepo,
+		userStorageCredRepo: userStorageCredRepo,
+		authenticator:       authenticator,
+		mailer:              mailer,
+		passwordHasher:      passwordHasher,
+		stringGenerator:     stringGenerator,
+
+		storageProviderPool: storageProviderPool,
 
 		htmlTemplates: htmlTemplates,
 		textTemplates: textTemplates,
@@ -106,6 +114,88 @@ func (s *service) Update(userID uint, name, newPassword, oldPassword *string) (*
 	return s.userRepo.Update(u)
 }
 
+// ConnectStorageProvider implementation
+func (s *service) ConnectStorageProvider(userID, providerID uint, providerCredential string) error {
+	storageProvider, err := s.storageProviderPool.Get(providerID)
+	if err != nil {
+		return err
+	}
+
+	u, err := s.userRepo.FindByID(userID)
+	if err != nil {
+		return err
+	}
+
+	storageProviderAccount, err := storageProvider.AccountInfo(
+		domain.StorageProviderCredential{
+			UserAccessToken: providerCredential,
+		},
+	)
+	if err != nil {
+		return err
+	}
+
+	var cred domain.UserStorageCredential
+
+	creds, err := s.userStorageCredRepo.Find(domain.UserStorageCredentialFilters{
+		UserIDs:     []uint{u.ID},
+		ProviderIDs: []uint{providerID},
+	}, false)
+	if err != nil {
+		return err
+	}
+
+	if len(creds) > 0 {
+		cred = creds[0]
+		cred.ProviderCredential = providerCredential
+		cred.Email = storageProviderAccount.Email
+		cred.Photo = storageProviderAccount.Photo
+		cred, err = s.userStorageCredRepo.Update(cred)
+	} else {
+		cred, err = s.userStorageCredRepo.Create(domain.UserStorageCredential{
+			UserID:             u.ID,
+			ProviderID:         providerID,
+			ProviderCredential: providerCredential,
+			Email:              storageProviderAccount.Email,
+			Photo:              storageProviderAccount.Photo,
+		})
+	}
+
+	return err
+
+}
+
+// DisconnectStorageProvider implementation
+func (s *service) DisconnectStorageProvider(userID, providerID uint) error {
+	storageProvider, err := s.storageProviderPool.Get(providerID)
+	if err != nil {
+		return err
+	}
+
+	u, err := s.userRepo.FindByID(userID)
+	if err != nil {
+		return err
+	}
+
+	creds, err := s.userStorageCredRepo.Find(domain.UserStorageCredentialFilters{
+		UserIDs:     []uint{u.ID},
+		ProviderIDs: []uint{storageProvider.ID()},
+	}, false)
+	if err != nil {
+		return err
+	}
+
+	if len(creds) > 0 {
+		err = s.userStorageCredRepo.Delete(creds[0])
+		if err != nil {
+			return err
+		}
+	}
+
+	return nil
+
+}
+
 // UpdateStorageToken implementation
 func (s *service) UpdateStorageToken(userID uint, dropboxToken *string) (*domain.User, error) {
 	u, err := s.userRepo.FindByID(userID)
@@ -124,6 +214,8 @@ func (s *service) RequestPasswordRecovery(email string) error {
 	if err != nil {
 		return err
 	}
+
+	// TODO: check if user has already requested password recovery to avoid spam
 
 	token := s.stringGenerator.Generate()
 	tokenExpiry := time.Now().Add(time.Minute * 5)

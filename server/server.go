@@ -11,12 +11,14 @@ import (
 	textTemplate "text/template"
 
 	drophere_go "github.com/bccfilkom/drophere-go"
+	"github.com/bccfilkom/drophere-go/domain"
 	"github.com/bccfilkom/drophere-go/domain/link"
 	"github.com/bccfilkom/drophere-go/domain/user"
 	"github.com/bccfilkom/drophere-go/infrastructure/auth"
 	"github.com/bccfilkom/drophere-go/infrastructure/database/mysql"
 	"github.com/bccfilkom/drophere-go/infrastructure/hasher"
 	"github.com/bccfilkom/drophere-go/infrastructure/mailer"
+	"github.com/bccfilkom/drophere-go/infrastructure/storageprovider"
 	"github.com/bccfilkom/drophere-go/infrastructure/stringgenerator"
 
 	"github.com/99designs/gqlgen/handler"
@@ -57,6 +59,7 @@ func main() {
 	// initialize repositories
 	userRepo := mysql.NewUserRepository(db)
 	linkRepo := mysql.NewLinkRepository(db)
+	userStorageCredRepo := mysql.NewUserStorageCredentialRepository(db)
 
 	// initialize infrastructures
 	authenticator := auth.NewJWT(
@@ -72,6 +75,10 @@ func main() {
 	)
 	uuidGenerator := stringgenerator.NewUUID()
 
+	dropboxService := storageprovider.NewDropboxStorageProvider("drophere-dev")
+	storageProviderPool := domain.StorageProviderPool{}
+	storageProviderPool.Register(dropboxService)
+
 	basePath := viper.GetString("app.templatePath")
 	htmlTemplates, err := htmlTemplate.ParseGlob(filepath.Join(basePath, "html", "*.html"))
 	if err != nil {
@@ -86,10 +93,12 @@ func main() {
 	// initialize services
 	userSvc := user.NewService(
 		userRepo,
+		userStorageCredRepo,
 		authenticator,
 		mailtrap,
 		bcryptHasher,
 		uuidGenerator,
+		storageProviderPool,
 		htmlTemplates,
 		textTemplates,
 	)
