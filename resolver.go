@@ -65,6 +65,7 @@ func (r *mutationResolver) Register(ctx context.Context, email string, password 
 	return &Token{LoginToken: userCreds.Token}, nil
 }
 
+// Login resolver
 func (r *mutationResolver) Login(ctx context.Context, email string, password string) (*Token, error) {
 	userCreds, err := r.userSvc.Auth(email, password)
 	if err != nil {
@@ -73,6 +74,7 @@ func (r *mutationResolver) Login(ctx context.Context, email string, password str
 	return &Token{LoginToken: userCreds.Token}, nil
 }
 
+// RequestPasswordRecovery resolver
 func (r *mutationResolver) RequestPasswordRecovery(ctx context.Context, email string) (*Message, error) {
 	err := r.userSvc.RequestPasswordRecovery(email)
 	if err != nil {
@@ -82,6 +84,7 @@ func (r *mutationResolver) RequestPasswordRecovery(ctx context.Context, email st
 	return &Message{"Recover Password instruction has been sent to your email"}, nil
 }
 
+// RecoverPassword resolver
 func (r *mutationResolver) RecoverPassword(ctx context.Context, email, recoverToken, newPassword string) (*Token, error) {
 	err := r.userSvc.RecoverPassword(email, recoverToken, newPassword)
 	if err != nil {
@@ -96,6 +99,7 @@ func (r *mutationResolver) RecoverPassword(ctx context.Context, email, recoverTo
 	return &Token{LoginToken: userCreds.Token}, nil
 }
 
+// UpdatePassword resolver
 func (r *mutationResolver) UpdatePassword(ctx context.Context, oldPassword string, newPassword string) (*Message, error) {
 	user := r.authenticator.GetAuthenticatedUser(ctx)
 	if user == nil {
@@ -109,6 +113,8 @@ func (r *mutationResolver) UpdatePassword(ctx context.Context, oldPassword strin
 
 	return &Message{Message: "You password successfully updated"}, nil
 }
+
+// UpdateProfile resolver
 func (r *mutationResolver) UpdateProfile(ctx context.Context, newName string) (*Message, error) {
 	user := r.authenticator.GetAuthenticatedUser(ctx)
 	if user == nil {
@@ -122,7 +128,9 @@ func (r *mutationResolver) UpdateProfile(ctx context.Context, newName string) (*
 
 	return &Message{Message: "Your profile successfully updated"}, nil
 }
-func (r *mutationResolver) CreateLink(ctx context.Context, title string, slug string, description *string, deadline *time.Time, password *string) (*Link, error) {
+
+// CreateLink resolver
+func (r *mutationResolver) CreateLink(ctx context.Context, title string, slug string, description *string, deadline *time.Time, password *string, providerID *int) (*Link, error) {
 	user := r.authenticator.GetAuthenticatedUser(ctx)
 	if user == nil {
 		return nil, errUnauthenticated
@@ -133,21 +141,22 @@ func (r *mutationResolver) CreateLink(ctx context.Context, title string, slug st
 		desc = *description
 	}
 
-	l, err := r.linkSvc.CreateLink(title, slug, desc, user)
+	var providerIDUintPtr *uint
+	if providerID != nil {
+		providerIDUint := uint(*providerID)
+		providerIDUintPtr = &providerIDUint
+	}
+
+	l, err := r.linkSvc.CreateLink(title, slug, desc, user, providerIDUintPtr)
 	if err != nil {
 		return nil, err
 	}
 
-	return &Link{
-		ID:          int(l.ID),
-		Title:       l.Title,
-		IsProtected: l.IsProtected(),
-		Slug:        &l.Slug,
-		Description: &l.Description,
-		Deadline:    l.Deadline,
-	}, nil
+	return formatLink(*l), nil
 }
-func (r *mutationResolver) UpdateLink(ctx context.Context, linkID int, title string, slug string, description *string, deadline *time.Time, password *string) (*Message, error) {
+
+// UpdateLink resolver
+func (r *mutationResolver) UpdateLink(ctx context.Context, linkID int, title string, slug string, description *string, deadline *time.Time, password *string, providerID *int) (*Link, error) {
 	user := r.authenticator.GetAuthenticatedUser(ctx)
 	if user == nil {
 		return nil, errUnauthenticated
@@ -162,21 +171,30 @@ func (r *mutationResolver) UpdateLink(ctx context.Context, linkID int, title str
 		return nil, errUnauthorized
 	}
 
-	_, err = r.linkSvc.UpdateLink(
+	var providerIDUintPtr *uint
+	if providerID != nil {
+		providerIDUint := uint(*providerID)
+		providerIDUintPtr = &providerIDUint
+	}
+
+	l, err = r.linkSvc.UpdateLink(
 		uint(linkID),
 		title,
 		slug,
 		description,
 		deadline,
 		password,
+		providerIDUintPtr,
 	)
 
 	if err != nil {
 		return nil, err
 	}
 
-	return &Message{Message: "Link Updated!"}, nil
+	return formatLink(*l), nil
 }
+
+// DeleteLink resolver
 func (r *mutationResolver) DeleteLink(ctx context.Context, linkID int) (*Message, error) {
 	user := r.authenticator.GetAuthenticatedUser(ctx)
 	if user == nil {
@@ -200,6 +218,7 @@ func (r *mutationResolver) DeleteLink(ctx context.Context, linkID int) (*Message
 	return &Message{Message: "Link Deleted!"}, nil
 }
 
+// CheckLinkPassword resolver
 func (r *mutationResolver) CheckLinkPassword(ctx context.Context, linkID int, password string) (*Message, error) {
 	// this is for public use, no need to check user auth
 	l, err := r.linkSvc.FetchLink(uint(linkID))
@@ -215,6 +234,7 @@ func (r *mutationResolver) CheckLinkPassword(ctx context.Context, linkID int, pa
 	return &Message{Message: msg}, nil
 }
 
+// ConnectStorageProvider resolver
 func (r *mutationResolver) ConnectStorageProvider(ctx context.Context, providerID int, providerToken string) (*Message, error) {
 	user := r.authenticator.GetAuthenticatedUser(ctx)
 	if user == nil {
@@ -229,6 +249,7 @@ func (r *mutationResolver) ConnectStorageProvider(ctx context.Context, providerI
 	return &Message{Message: "Storage Provider successfully connected"}, nil
 }
 
+// DisconnectStorageProvider resolver
 func (r *mutationResolver) DisconnectStorageProvider(ctx context.Context, providerID int) (*Message, error) {
 	user := r.authenticator.GetAuthenticatedUser(ctx)
 	if user == nil {
@@ -245,6 +266,7 @@ func (r *mutationResolver) DisconnectStorageProvider(ctx context.Context, provid
 
 type queryResolver struct{ *Resolver }
 
+// Links resolver
 func (r *queryResolver) Links(ctx context.Context) ([]*Link, error) {
 	user := r.authenticator.GetAuthenticatedUser(ctx)
 	if user == nil {
@@ -256,19 +278,10 @@ func (r *queryResolver) Links(ctx context.Context) ([]*Link, error) {
 		return nil, err
 	}
 
-	formattedLinks := make([]*Link, len(links))
-	for i := range links {
-		formattedLinks[i] = &Link{
-			ID:          int(links[i].ID),
-			Title:       links[i].Title,
-			IsProtected: links[i].IsProtected(),
-			Slug:        &links[i].Slug,
-			Description: &links[i].Description,
-			Deadline:    links[i].Deadline,
-		}
-	}
-	return formattedLinks, nil
+	return formatLinks(links), nil
 }
+
+// Me resolver
 func (r *queryResolver) Me(ctx context.Context) (*User, error) {
 	user := r.authenticator.GetAuthenticatedUser(ctx)
 	if user == nil {
@@ -298,6 +311,8 @@ func (r *queryResolver) Me(ctx context.Context) (*User, error) {
 		ConnectedStorageProviders: storageProviders,
 	}, nil
 }
+
+// Link resolver
 func (r *queryResolver) Link(ctx context.Context, slug string) (*Link, error) {
 	// this is for public use, no need to check user auth
 	link, err := r.linkSvc.FindLinkBySlug(slug)
@@ -305,12 +320,51 @@ func (r *queryResolver) Link(ctx context.Context, slug string) (*Link, error) {
 		return nil, err
 	}
 
-	return &Link{
+	return formatLink(*link), nil
+}
+
+func formatLink(link domain.Link) *Link {
+	formattedLink := &Link{
 		ID:          int(link.ID),
 		Title:       link.Title,
 		IsProtected: link.IsProtected(),
 		Slug:        &link.Slug,
 		Description: &link.Description,
 		Deadline:    link.Deadline,
-	}, nil
+	}
+
+	if link.UserStorageCredential != nil {
+		formattedLink.StorageProvider = &StorageProvider{
+			ID:         int(link.UserStorageCredential.ID),
+			ProviderID: int(link.UserStorageCredential.ProviderID),
+			Email:      link.UserStorageCredential.Email,
+			Photo:      link.UserStorageCredential.Photo,
+		}
+	}
+
+	return formattedLink
+}
+
+func formatLinks(links []domain.Link) []*Link {
+	formattedLinks := make([]*Link, len(links))
+	for i, link := range links {
+		formattedLinks[i] = &Link{
+			ID:          int(link.ID),
+			Title:       link.Title,
+			IsProtected: link.IsProtected(),
+			Slug:        &links[i].Slug,
+			Description: &links[i].Description,
+			Deadline:    link.Deadline,
+		}
+
+		if link.UserStorageCredential != nil {
+			formattedLinks[i].StorageProvider = &StorageProvider{
+				ID:         int(link.UserStorageCredential.ID),
+				ProviderID: int(link.UserStorageCredential.ProviderID),
+				Email:      link.UserStorageCredential.Email,
+				Photo:      link.UserStorageCredential.Photo,
+			}
+		}
+	}
+	return formattedLinks
 }

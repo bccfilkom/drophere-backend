@@ -102,7 +102,7 @@ func main() {
 		htmlTemplates,
 		textTemplates,
 	)
-	linkSvc := link.NewService(linkRepo, bcryptHasher)
+	linkSvc := link.NewService(linkRepo, userStorageCredRepo, bcryptHasher)
 
 	resolver := drophere_go.NewResolver(userSvc, authenticator, linkSvc)
 

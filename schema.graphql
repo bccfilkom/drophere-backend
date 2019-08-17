@@ -51,8 +51,8 @@ type Mutation {
   updateProfile(newName: String!): Message
   connectStorageProvider(providerId: Int!, providerToken: String!): Message
   disconnectStorageProvider(providerId: Int!): Message
-  createLink(title:  String!,slug: String!, description: String, deadline: Time, password: String): Link
-  updateLink(linkId: Int!, title:  String!, slug: String!, description: String, deadline: Time, password: String): Message
+  createLink(title:  String!, slug: String!, description: String, deadline: Time, password: String, providerId: Int): Link
+  updateLink(linkId: Int!, title:  String!, slug: String!, description: String, deadline: Time, password: String, providerId: Int): Link
   deleteLink(linkId: Int!): Message
   checkLinkPassword(linkId: Int!, password: String!): Message
 }

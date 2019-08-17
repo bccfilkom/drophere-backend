@@ -13,7 +13,9 @@ func New(dsn string) (*gorm.DB, error) {
 		return nil, err
 	}
 
-	db = db.Set("gorm:table_options", "DEFAULT CHARACTER SET=utf8mb4 COLLATE=utf8mb4_general_ci ENGINE=InnoDB")
+	db = db.
+		Set("gorm:table_options", "DEFAULT CHARACTER SET=utf8mb4 COLLATE=utf8mb4_general_ci ENGINE=InnoDB").
+		Set("gorm:auto_preload", false)
 
 	db.DB().SetMaxIdleConns(10)
 	db.DB().SetMaxOpenConns(100)

@@ -59,14 +59,14 @@ type ComplexityRoot struct {
 	Mutation struct {
 		CheckLinkPassword         func(childComplexity int, linkID int, password string) int
 		ConnectStorageProvider    func(childComplexity int, providerID int, providerToken string) int
-		CreateLink                func(childComplexity int, title string, slug string, description *string, deadline *time.Time, password *string) int
+		CreateLink                func(childComplexity int, title string, slug string, description *string, deadline *time.Time, password *string, providerID *int) int
 		DeleteLink                func(childComplexity int, linkID int) int
 		DisconnectStorageProvider func(childComplexity int, providerID int) int
 		Login                     func(childComplexity int, email string, password string) int
 		RecoverPassword           func(childComplexity int, email string, recoverToken string, newPassword string) int
 		Register                  func(childComplexity int, email string, password string, name string) int
 		RequestPasswordRecovery   func(childComplexity int, email string) int
-		UpdateLink                func(childComplexity int, linkID int, title string, slug string, description *string, deadline *time.Time, password *string) int
+		UpdateLink                func(childComplexity int, linkID int, title string, slug string, description *string, deadline *time.Time, password *string, providerID *int) int
 		UpdatePassword            func(childComplexity int, oldPassword string, newPassword string) int
 		UpdateProfile             func(childComplexity int, newName string) int
 	}
@@ -108,8 +108,8 @@ type MutationResolver interface {
 	UpdateProfile(ctx context.Context, newName string) (*Message, error)
 	ConnectStorageProvider(ctx context.Context, providerID int, providerToken string) (*Message, error)
 	DisconnectStorageProvider(ctx context.Context, providerID int) (*Message, error)
-	CreateLink(ctx context.Context, title string, slug string, description *string, deadline *time.Time, password *string) (*Link, error)
-	UpdateLink(ctx context.Context, linkID int, title string, slug string, description *string, deadline *time.Time, password *string) (*Message, error)
+	CreateLink(ctx context.Context, title string, slug string, description *string, deadline *time.Time, password *string, providerID *int) (*Link, error)
+	UpdateLink(ctx context.Context, linkID int, title string, slug string, description *string, deadline *time.Time, password *string, providerID *int) (*Link, error)
 	DeleteLink(ctx context.Context, linkID int) (*Message, error)
 	CheckLinkPassword(ctx context.Context, linkID int, password string) (*Message, error)
 }
@@ -224,7 +224,7 @@ func (e *executableSchema) Complexity(typeName, field string, childComplexity in
 			return 0, false
 		}
 
-		return e.complexity.Mutation.CreateLink(childComplexity, args["title"].(string), args["slug"].(string), args["description"].(*string), args["deadline"].(*time.Time), args["password"].(*string)), true
+		return e.complexity.Mutation.CreateLink(childComplexity, args["title"].(string), args["slug"].(string), args["description"].(*string), args["deadline"].(*time.Time), args["password"].(*string), args["providerId"].(*int)), true
 
 	case "Mutation.deleteLink":
 		if e.complexity.Mutation.DeleteLink == nil {
@@ -308,7 +308,7 @@ func (e *executableSchema) Complexity(typeName, field string, childComplexity in
 			return 0, false
 		}
 
-		return e.complexity.Mutation.UpdateLink(childComplexity, args["linkId"].(int), args["title"].(string), args["slug"].(string), args["description"].(*string), args["deadline"].(*time.Time), args["password"].(*string)), true
+		return e.complexity.Mutation.UpdateLink(childComplexity, args["linkId"].(int), args["title"].(string), args["slug"].(string), args["description"].(*string), args["deadline"].(*time.Time), args["password"].(*string), args["providerId"].(*int)), true
 
 	case "Mutation.updatePassword":
 		if e.complexity.Mutation.UpdatePassword == nil {
@@ -574,8 +574,8 @@ type Mutation {
   updateProfile(newName: String!): Message
   connectStorageProvider(providerId: Int!, providerToken: String!): Message
   disconnectStorageProvider(providerId: Int!): Message
-  createLink(title:  String!,slug: String!, description: String, deadline: Time, password: String): Link
-  updateLink(linkId: Int!, title:  String!, slug: String!, description: String, deadline: Time, password: String): Message
+  createLink(title:  String!, slug: String!, description: String, deadline: Time, password: String, providerId: Int): Link
+  updateLink(linkId: Int!, title:  String!, slug: String!, description: String, deadline: Time, password: String, providerId: Int): Link
   deleteLink(linkId: Int!): Message
   checkLinkPassword(linkId: Int!, password: String!): Message
 }
@@ -674,6 +674,14 @@ func (ec *executionContext) field_Mutation_createLink_args(ctx context.Context, 
 		}
 	}
 	args["password"] = arg4
+	var arg5 *int
+	if tmp, ok := rawArgs["providerId"]; ok {
+		arg5, err = ec.unmarshalOInt2ᚖint(ctx, tmp)
+		if err != nil {
+			return nil, err
+		}
+	}
+	args["providerId"] = arg5
 	return args, nil
 }
 
@@ -852,6 +860,14 @@ func (ec *executionContext) field_Mutation_updateLink_args(ctx context.Context, 
 		}
 	}
 	args["password"] = arg5
+	var arg6 *int
+	if tmp, ok := rawArgs["providerId"]; ok {
+		arg6, err = ec.unmarshalOInt2ᚖint(ctx, tmp)
+		if err != nil {
+			return nil, err
+		}
+	}
+	args["providerId"] = arg6
 	return args, nil
 }
 
@@ -1423,7 +1439,7 @@ func (ec *executionContext) _Mutation_createLink(ctx context.Context, field grap
 	ctx = ec.Tracer.StartFieldResolverExecution(ctx, rctx)
 	resTmp := ec.FieldMiddleware(ctx, nil, func(rctx context.Context) (interface{}, error) {
 		ctx = rctx // use context from middleware stack in children
-		return ec.resolvers.Mutation().CreateLink(rctx, args["title"].(string), args["slug"].(string), args["description"].(*string), args["deadline"].(*time.Time), args["password"].(*string))
+		return ec.resolvers.Mutation().CreateLink(rctx, args["title"].(string), args["slug"].(string), args["description"].(*string), args["deadline"].(*time.Time), args["password"].(*string), args["providerId"].(*int))
 	})
 	if resTmp == nil {
 		return graphql.Null
@@ -1454,15 +1470,15 @@ func (ec *executionContext) _Mutation_updateLink(ctx context.Context, field grap
 	ctx = ec.Tracer.StartFieldResolverExecution(ctx, rctx)
 	resTmp := ec.FieldMiddleware(ctx, nil, func(rctx context.Context) (interface{}, error) {
 		ctx = rctx // use context from middleware stack in children
-		return ec.resolvers.Mutation().UpdateLink(rctx, args["linkId"].(int), args["title"].(string), args["slug"].(string), args["description"].(*string), args["deadline"].(*time.Time), args["password"].(*string))
+		return ec.resolvers.Mutation().UpdateLink(rctx, args["linkId"].(int), args["title"].(string), args["slug"].(string), args["description"].(*string), args["deadline"].(*time.Time), args["password"].(*string), args["providerId"].(*int))
 	})
 	if resTmp == nil {
 		return graphql.Null
 	}
-	res := resTmp.(*Message)
+	res := resTmp.(*Link)
 	rctx.Result = res
 	ctx = ec.Tracer.StartFieldChildExecution(ctx)
-	return ec.marshalOMessage2ᚖgithubᚗcomᚋbccfilkomᚋdrophereᚑgoᚐMessage(ctx, field.Selections, res)
+	return ec.marshalOLink2ᚖgithubᚗcomᚋbccfilkomᚋdrophereᚑgoᚐLink(ctx, field.Selections, res)
 }
 
 func (ec *executionContext) _Mutation_deleteLink(ctx context.Context, field graphql.CollectedField) graphql.Marshaler {
@@ -3708,6 +3724,29 @@ func (ec *executionContext) marshalOBoolean2ᚖbool(ctx context.Context, sel ast
 		return graphql.Null
 	}
 	return ec.marshalOBoolean2bool(ctx, sel, *v)
+}
+
+func (ec *executionContext) unmarshalOInt2int(ctx context.Context, v interface{}) (int, error) {
+	return graphql.UnmarshalInt(v)
+}
+
+func (ec *executionContext) marshalOInt2int(ctx context.Context, sel ast.SelectionSet, v int) graphql.Marshaler {
+	return graphql.MarshalInt(v)
+}
+
+func (ec *executionContext) unmarshalOInt2ᚖint(ctx context.Context, v interface{}) (*int, error) {
+	if v == nil {
+		return nil, nil
+	}
+	res, err := ec.unmarshalOInt2int(ctx, v)
+	return &res, err
+}
+
+func (ec *executionContext) marshalOInt2ᚖint(ctx context.Context, sel ast.SelectionSet, v *int) graphql.Marshaler {
+	if v == nil {
+		return graphql.Null
+	}
+	return ec.marshalOInt2int(ctx, sel, *v)
 }
 
 func (ec *executionContext) marshalOLink2githubᚗcomᚋbccfilkomᚋdrophereᚑgoᚐLink(ctx context.Context, sel ast.SelectionSet, v Link) graphql.Marshaler {

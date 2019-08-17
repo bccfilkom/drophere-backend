@@ -32,6 +32,7 @@ func (repo *linkRepository) FindByID(id uint) (*domain.Link, error) {
 	l := domain.Link{}
 	if q := repo.db.
 		Preload("User").
+		Preload("UserStorageCredential").
 		Find(&l, id); q.RecordNotFound() {
 		return nil, domain.ErrLinkNotFound
 	} else if q.Error != nil {
@@ -47,6 +48,7 @@ func (repo *linkRepository) FindBySlug(slug string) (*domain.Link, error) {
 	if q := repo.db.
 		Where("`slug` = ? ", slug).
 		Preload("User").
+		Preload("UserStorageCredential").
 		Find(&l); q.RecordNotFound() {
 		return nil, domain.ErrLinkNotFound
 	} else if q.Error != nil {
@@ -62,6 +64,7 @@ func (repo *linkRepository) ListByUser(userID uint) ([]domain.Link, error) {
 	if err := repo.db.
 		Where("`user_id` = ? ", userID).
 		Preload("User").
+		Preload("UserStorageCredential").
 		Find(&links).
 		Error; err != nil {
 		return nil, err
