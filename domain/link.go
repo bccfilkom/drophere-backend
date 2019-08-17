@@ -16,14 +16,16 @@ var (
 
 // Link domain model
 type Link struct {
-	ID          uint
-	UserID      uint
-	User        *User
-	Title       string
-	Password    string
-	Slug        string
-	Deadline    *time.Time
-	Description string
+	ID                      uint
+	UserID                  uint
+	User                    *User
+	Title                   string
+	Password                string
+	Slug                    string
+	Deadline                *time.Time
+	Description             string
+	UserStorageCredentialID *uint
+	UserStorageCredential   *UserStorageCredential
 }
 
 // IsProtected checks if the link is protected with password

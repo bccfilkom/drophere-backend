@@ -6,6 +6,8 @@ import (
 	"testing"
 	"time"
 
+	"github.com/stretchr/testify/assert"
+
 	htmlTemplate "html/template"
 	textTemplate "text/template"
 
@@ -538,6 +540,54 @@ func TestDisconnectStorageProvider(t *testing.T) {
 			}
 
 		}
+
+	}
+}
+
+func TestListStorageProviders(t *testing.T) {
+	type test struct {
+		userID            uint
+		expectedProviders []domain.UserStorageCredential
+		wantErr           error
+	}
+
+	userRepo, userStorageCredRepo := newRepo()
+	uscsUser1, _ := userStorageCredRepo.Find(domain.UserStorageCredentialFilters{
+		UserIDs: []uint{1},
+	}, false)
+
+	tests := []test{
+		{
+			// expect empty
+			userID:            123,
+			expectedProviders: []domain.UserStorageCredential{},
+			wantErr:           nil,
+		},
+		{
+			// expect non-empty credential
+			userID:            1,
+			expectedProviders: uscsUser1,
+			wantErr:           nil,
+		},
+	}
+
+	userSvc := user.NewService(
+		userRepo,
+		userStorageCredRepo,
+		authenticator,
+		mockMailer,
+		dummyHasher,
+		strGen,
+		storageProviderPool,
+		htmlTemplates,
+		textTemplates,
+	)
+
+	for _, tc := range tests {
+
+		uscs, gotErr := userSvc.ListStorageProviders(tc.userID)
+		assert.ElementsMatch(t, tc.expectedProviders, uscs)
+		assert.Equal(t, tc.wantErr, gotErr)
 
 	}
 }

@@ -215,13 +215,13 @@ func (r *mutationResolver) CheckLinkPassword(ctx context.Context, linkID int, pa
 	return &Message{Message: msg}, nil
 }
 
-func (r *mutationResolver) ConnectStorageProvider(ctx context.Context, providerKey int, providerToken string) (*Message, error) {
+func (r *mutationResolver) ConnectStorageProvider(ctx context.Context, providerID int, providerToken string) (*Message, error) {
 	user := r.authenticator.GetAuthenticatedUser(ctx)
 	if user == nil {
 		return nil, errUnauthenticated
 	}
 
-	err := r.userSvc.ConnectStorageProvider(user.ID, uint(providerKey), providerToken)
+	err := r.userSvc.ConnectStorageProvider(user.ID, uint(providerID), providerToken)
 	if err != nil {
 		return nil, err
 	}
@@ -229,13 +229,13 @@ func (r *mutationResolver) ConnectStorageProvider(ctx context.Context, providerK
 	return &Message{Message: "Storage Provider successfully connected"}, nil
 }
 
-func (r *mutationResolver) DisconnectStorageProvider(ctx context.Context, providerKey int) (*Message, error) {
+func (r *mutationResolver) DisconnectStorageProvider(ctx context.Context, providerID int) (*Message, error) {
 	user := r.authenticator.GetAuthenticatedUser(ctx)
 	if user == nil {
 		return nil, errUnauthenticated
 	}
 
-	err := r.userSvc.DisconnectStorageProvider(user.ID, uint(providerKey))
+	err := r.userSvc.DisconnectStorageProvider(user.ID, uint(providerID))
 	if err != nil {
 		return nil, err
 	}
@@ -275,18 +275,27 @@ func (r *queryResolver) Me(ctx context.Context) (*User, error) {
 		return nil, errUnauthenticated
 	}
 
-	var dropboxEmail *string
+	uscs, err := r.userSvc.ListStorageProviders(user.ID)
+	if err != nil {
+		return nil, err
+	}
 
-	if user.DropboxToken != nil {
-		dropboxEmail = &user.Email
+	// map from domain.UserStorageProviderCredential to StorageProvider
+	storageProviders := make([]*StorageProvider, len(uscs))
+	for i, usc := range uscs {
+		storageProviders[i] = &StorageProvider{
+			ID:         int(usc.ID),
+			ProviderID: int(usc.ProviderID),
+			Email:      usc.Email,
+			Photo:      usc.Photo,
+		}
 	}
 
 	return &User{
-		ID:                int(user.ID),
-		Email:             user.Email,
-		Name:              user.Name,
-		DropboxAuthorized: user.DropboxToken != nil,
-		DropboxEmail:      dropboxEmail,
+		ID:                        int(user.ID),
+		Email:                     user.Email,
+		Name:                      user.Name,
+		ConnectedStorageProviders: storageProviders,
 	}, nil
 }
 func (r *queryResolver) Link(ctx context.Context, slug string) (*Link, error) {
