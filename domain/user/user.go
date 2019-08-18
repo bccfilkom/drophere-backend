@@ -2,6 +2,7 @@ package user
 
 import (
 	"bytes"
+	"fmt"
 	"time"
 
 	htmlTemplate "html/template"
@@ -9,6 +10,14 @@ import (
 
 	"github.com/bccfilkom/drophere-go/domain"
 )
+
+const defaultTokenExpiryDuration int = 5
+
+// Config model
+type Config struct {
+	PasswordRecoveryTokenExpiryDuration int
+	RecoverPasswordWebURL               string
+}
 
 type service struct {
 	userRepo            domain.UserRepository
@@ -22,6 +31,8 @@ type service struct {
 
 	htmlTemplates *htmlTemplate.Template
 	textTemplates *textTemplate.Template
+
+	config Config
 }
 
 // NewService returns service instance
@@ -35,6 +46,7 @@ func NewService(
 	storageProviderPool domain.StorageProviderPool,
 	htmlTemplates *htmlTemplate.Template,
 	textTemplates *textTemplate.Template,
+	config Config,
 ) domain.UserService {
 	return &service{
 		userRepo:            userRepo,
@@ -48,6 +60,8 @@ func NewService(
 
 		htmlTemplates: htmlTemplates,
 		textTemplates: textTemplates,
+
+		config: config,
 	}
 }
 
@@ -134,9 +148,13 @@ func (s *service) RequestPasswordRecovery(email string) error {
 	}
 
 	// TODO: check if user has already requested password recovery to avoid spam
+	tokenExpiryDuration := defaultTokenExpiryDuration
+	if s.config.PasswordRecoveryTokenExpiryDuration > 0 {
+		tokenExpiryDuration = s.config.PasswordRecoveryTokenExpiryDuration
+	}
 
 	token := s.stringGenerator.Generate()
-	tokenExpiry := time.Now().Add(time.Minute * 5)
+	tokenExpiry := time.Now().Add(time.Minute * time.Duration(tokenExpiryDuration))
 	u.RecoverPasswordToken = &token
 	u.RecoverPasswordTokenExpiry = &tokenExpiry
 
@@ -153,6 +171,7 @@ func (s *service) RequestPasswordRecovery(email string) error {
 			Name:    u.Name,
 		},
 		"Recover Password",
+		u.Email,
 		token,
 	)
 	if err != nil {
@@ -162,7 +181,7 @@ func (s *service) RequestPasswordRecovery(email string) error {
 	return nil
 }
 
-func (s *service) sendPasswordRecoveryTokenToEmail(to domain.MailAddress, subject, token string) error {
+func (s *service) sendPasswordRecoveryTokenToEmail(to domain.MailAddress, subject, email, token string) error {
 
 	// preparing template
 	htmlTmpl := s.htmlTemplates.Lookup("request_password_recovery_html")
@@ -177,6 +196,12 @@ func (s *service) sendPasswordRecoveryTokenToEmail(to domain.MailAddress, subjec
 
 	// preparing template content
 	messageData := map[string]string{
+		"ResetPasswordLink": fmt.Sprintf(
+			"%s?token=%s&email=%s",
+			s.config.RecoverPasswordWebURL,
+			token,
+			email,
+		),
 		"Token": token,
 	}
 

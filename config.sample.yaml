@@ -2,6 +2,7 @@ app:
   debug: false
   storageRootDirectoryName: "drophere"
   passwordRecoveryTokenExpiryDuration: 5 # in minutes
+  recoverPasswordWebURL: "https://drophere.link/reset-password"
   templatePath: "files/template"
 
 db:

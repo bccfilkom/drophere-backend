@@ -111,6 +111,10 @@ func main() {
 		storageProviderPool,
 		htmlTemplates,
 		textTemplates,
+		user.Config{
+			PasswordRecoveryTokenExpiryDuration: viper.GetInt("app.passwordRecoveryTokenExpiryDuration"),
+			RecoverPasswordWebURL:               viper.GetString("app.recoverPasswordWebURL"),
+		},
 	)
 	linkSvc := link.NewService(linkRepo, userStorageCredRepo, bcryptHasher)
 

@@ -96,6 +96,7 @@ func TestRegister(t *testing.T) {
 		storageProviderPool,
 		htmlTemplates,
 		textTemplates,
+		user.Config{},
 	)
 
 	for i, tc := range tests {
@@ -131,6 +132,7 @@ func TestAuth(t *testing.T) {
 		storageProviderPool,
 		htmlTemplates,
 		textTemplates,
+		user.Config{},
 	)
 
 	for i, tc := range tests {
@@ -180,6 +182,7 @@ func TestUpdateStorageToken(t *testing.T) {
 		storageProviderPool,
 		htmlTemplates,
 		textTemplates,
+		user.Config{},
 	)
 
 	for i, tc := range tests {
@@ -234,6 +237,7 @@ func TestUpdate(t *testing.T) {
 		storageProviderPool,
 		htmlTemplates,
 		textTemplates,
+		user.Config{},
 	)
 
 	for i, tc := range tests {
@@ -290,6 +294,7 @@ func TestRequestPasswordRecovery(t *testing.T) {
 		storageProviderPool,
 		htmlTemplates,
 		textTemplates,
+		user.Config{},
 	)
 
 	for i, tc := range tests {
@@ -369,6 +374,7 @@ func TestRecoverPassword(t *testing.T) {
 		storageProviderPool,
 		htmlTemplates,
 		textTemplates,
+		user.Config{},
 	)
 
 	for i, tc := range tests {
@@ -443,6 +449,7 @@ func TestConnectStorageProvider(t *testing.T) {
 		storageProviderPool,
 		htmlTemplates,
 		textTemplates,
+		user.Config{},
 	)
 
 	for i, tc := range tests {
@@ -520,6 +527,7 @@ func TestDisconnectStorageProvider(t *testing.T) {
 		storageProviderPool,
 		htmlTemplates,
 		textTemplates,
+		user.Config{},
 	)
 
 	for i, tc := range tests {
@@ -581,6 +589,7 @@ func TestListStorageProviders(t *testing.T) {
 		storageProviderPool,
 		htmlTemplates,
 		textTemplates,
+		user.Config{},
 	)
 
 	for _, tc := range tests {
