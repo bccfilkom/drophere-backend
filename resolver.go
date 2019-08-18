@@ -147,7 +147,7 @@ func (r *mutationResolver) CreateLink(ctx context.Context, title string, slug st
 		providerIDUintPtr = &providerIDUint
 	}
 
-	l, err := r.linkSvc.CreateLink(title, slug, desc, user, providerIDUintPtr)
+	l, err := r.linkSvc.CreateLink(title, slug, desc, deadline, password, user, providerIDUintPtr)
 	if err != nil {
 		return nil, err
 	}

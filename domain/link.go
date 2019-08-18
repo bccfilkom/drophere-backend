@@ -36,7 +36,7 @@ func (l *Link) IsProtected() bool {
 // LinkService abstraction
 type LinkService interface {
 	CheckLinkPassword(l *Link, password string) bool
-	CreateLink(title, slug, description string, user *User, providerID *uint) (*Link, error)
+	CreateLink(title, slug, description string, deadline *time.Time, password *string, user *User, providerID *uint) (*Link, error)
 	UpdateLink(id uint, title, slug string, description *string, deadline *time.Time, password *string, providerID *uint) (*Link, error)
 	DeleteLink(id uint) error
 	FetchLink(id uint) (*Link, error)

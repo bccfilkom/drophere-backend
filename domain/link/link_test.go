@@ -92,6 +92,8 @@ func TestCreateLink(t *testing.T) {
 		title       string
 		slug        string
 		description string
+		deadline    *time.Time
+		password    *string
 		user        *domain.User
 		providerID  *uint
 		wantLink    *domain.Link
@@ -101,6 +103,8 @@ func TestCreateLink(t *testing.T) {
 	linkRepo, userRepo, uscRepo := newRepo()
 	user, _ := userRepo.FindByID(1)
 	uscUser1, _ := uscRepo.FindByID(2000, false)
+
+	linkDeadline := time.Date(2020, time.November, 11, 1, 2, 3, 0, time.UTC)
 
 	tests := []test{
 		{
@@ -150,12 +154,33 @@ func TestCreateLink(t *testing.T) {
 			},
 			wantErr: nil,
 		},
+		{
+			title:       "Link with associated storage provider",
+			slug:        "guarded-with-pwd-and-deadline",
+			description: "hello there, please upload a file",
+			deadline:    &linkDeadline,
+			password:    str2ptr("abcdef"),
+			user:        user,
+			providerID:  uint2ptr(1),
+			wantLink: &domain.Link{
+				ID:                      6,
+				UserID:                  user.ID,
+				Title:                   "Link with associated storage provider",
+				Slug:                    "guarded-with-pwd-and-deadline",
+				Description:             "hello there, please upload a file",
+				Deadline:                &linkDeadline,
+				Password:                "abcdef",
+				UserStorageCredentialID: uint2ptr(2000),
+				UserStorageCredential:   &uscUser1,
+			},
+			wantErr: nil,
+		},
 	}
 
 	linkSvc := link.NewService(linkRepo, uscRepo, dummyHasher)
 
 	for _, tc := range tests {
-		gotLink, gotErr := linkSvc.CreateLink(tc.title, tc.slug, tc.description, tc.user, tc.providerID)
+		gotLink, gotErr := linkSvc.CreateLink(tc.title, tc.slug, tc.description, tc.deadline, tc.password, tc.user, tc.providerID)
 
 		assert.Equal(t, tc.wantErr, gotErr)
 		assert.Equal(t, tc.wantLink, gotLink)

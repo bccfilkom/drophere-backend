@@ -36,7 +36,7 @@ func (s *service) CheckLinkPassword(l *domain.Link, password string) bool {
 }
 
 // CreateLink creates new Link and store it to repository
-func (s *service) CreateLink(title, slug, description string, user *domain.User, providerID *uint) (*domain.Link, error) {
+func (s *service) CreateLink(title, slug, description string, deadline *time.Time, password *string, user *domain.User, providerID *uint) (*domain.Link, error) {
 	l, err := s.linkRepo.FindBySlug(slug)
 	if err != nil && err != domain.ErrLinkNotFound {
 		return nil, err
@@ -51,6 +51,14 @@ func (s *service) CreateLink(title, slug, description string, user *domain.User,
 		Title:       title,
 		Slug:        slug,
 		Description: description,
+		Deadline:    deadline,
+	}
+
+	if password != nil && *password != "" {
+		l.Password, err = s.passwordHasher.Hash(*password)
+		if err != nil {
+			return nil, err
+		}
 	}
 
 	if providerID != nil && *providerID > 0 {
