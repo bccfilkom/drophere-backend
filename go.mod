@@ -30,6 +30,8 @@ require (
 	github.com/prometheus/tsdb v0.8.0 // indirect
 	github.com/rogpeppe/fastuuid v1.1.0 // indirect
 	github.com/rs/cors v1.6.0
+	github.com/sendgrid/rest v2.4.1+incompatible // indirect
+	github.com/sendgrid/sendgrid-go v3.5.0+incompatible
 	github.com/sirupsen/logrus v1.4.2 // indirect
 	github.com/spaolacci/murmur3 v1.1.0 // indirect
 	github.com/spf13/afero v1.2.2 // indirect

@@ -74,9 +74,13 @@ func main() {
 		userRepo,
 	)
 	bcryptHasher := hasher.NewBcryptHasher()
-	mailtrap := mailer.NewMailtrap(
-		viper.GetString("mailer.mailtrap.username"),
-		viper.GetString("mailer.mailtrap.password"),
+	// mailtrap := mailer.NewMailtrap(
+	// 	viper.GetString("mailer.mailtrap.username"),
+	// 	viper.GetString("mailer.mailtrap.password"),
+	// )
+	sendgridMailer := mailer.NewSendgrid(
+		viper.GetString("mailer.sendgrid.apiKey"),
+		debug,
 	)
 	uuidGenerator := stringgenerator.NewUUID()
 
@@ -105,15 +109,17 @@ func main() {
 		userRepo,
 		userStorageCredRepo,
 		authenticator,
-		mailtrap,
+		sendgridMailer,
 		bcryptHasher,
 		uuidGenerator,
 		storageProviderPool,
 		htmlTemplates,
 		textTemplates,
 		user.Config{
-			PasswordRecoveryTokenExpiryDuration: viper.GetInt("app.passwordRecoveryTokenExpiryDuration"),
-			RecoverPasswordWebURL:               viper.GetString("app.recoverPasswordWebURL"),
+			PasswordRecoveryTokenExpiryDuration: viper.GetInt("app.passwordRecovery.tokenExpiryDuration"),
+			RecoverPasswordWebURL:               viper.GetString("app.passwordRecovery.webURL"),
+			MailerEmail:                         viper.GetString("app.passwordRecovery.mailer.email"),
+			MailerName:                          viper.GetString("app.passwordRecovery.mailer.name"),
 		},
 	)
 	linkSvc := link.NewService(linkRepo, userStorageCredRepo, bcryptHasher)

@@ -17,6 +17,8 @@ const defaultTokenExpiryDuration int = 5
 type Config struct {
 	PasswordRecoveryTokenExpiryDuration int
 	RecoverPasswordWebURL               string
+	MailerEmail                         string
+	MailerName                          string
 }
 
 type service struct {
@@ -212,12 +214,22 @@ func (s *service) sendPasswordRecoveryTokenToEmail(to domain.MailAddress, subjec
 	textMessage := &bytes.Buffer{}
 	textTmpl.Execute(textMessage, messageData)
 
+	from := domain.MailAddress{
+		Address: "admin@drophere.link",
+		Name:    "Drophere Bot",
+	}
+
+	if s.config.MailerEmail != "" {
+		from.Address = s.config.MailerEmail
+	}
+
+	if s.config.MailerName != "" {
+		from.Name = s.config.MailerName
+	}
+
 	// send email
 	return s.mailer.Send(
-		domain.MailAddress{
-			Address: "admin@drophere.link",
-			Name:    "Drophere Bot",
-		},
+		from,
 		to,
 		subject,
 		textMessage.String(),
