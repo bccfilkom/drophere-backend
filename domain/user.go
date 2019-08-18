@@ -39,6 +39,9 @@ type UserService interface {
 	Register(email, name, password string) (*User, error)
 	Auth(email, password string) (*UserCredentials, error)
 	Update(userID uint, name, password, oldPassword *string) (*User, error)
+	ConnectStorageProvider(userID, providerID uint, providerCredential string) error
+	DisconnectStorageProvider(userID, providerID uint) error
+	ListStorageProviders(userID uint) ([]UserStorageCredential, error)
 	UpdateStorageToken(userID uint, dropboxToken *string) (*User, error)
 	RequestPasswordRecovery(email string) error
 	RecoverPassword(email, token, newPassword string) error

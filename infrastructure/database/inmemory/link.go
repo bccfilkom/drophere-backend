@@ -13,6 +13,7 @@ func NewLinkRepository(db *DB) domain.LinkRepository {
 
 // Create implementation
 func (repo *linkRepository) Create(l *domain.Link) (*domain.Link, error) {
+	l.ID = uint(len(repo.db.links) + 1)
 	repo.db.links = append(repo.db.links, *l)
 	return l, nil
 }

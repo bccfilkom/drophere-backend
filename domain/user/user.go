@@ -11,11 +11,14 @@ import (
 )
 
 type service struct {
-	userRepo        domain.UserRepository
-	authenticator   domain.Authenticator
-	mailer          domain.Mailer
-	passwordHasher  domain.Hasher
-	stringGenerator domain.StringGenerator
+	userRepo            domain.UserRepository
+	userStorageCredRepo domain.UserStorageCredentialRepository
+	authenticator       domain.Authenticator
+	mailer              domain.Mailer
+	passwordHasher      domain.Hasher
+	stringGenerator     domain.StringGenerator
+
+	storageProviderPool domain.StorageProviderPool
 
 	htmlTemplates *htmlTemplate.Template
 	textTemplates *textTemplate.Template
@@ -24,19 +27,24 @@ type service struct {
 // NewService returns service instance
 func NewService(
 	userRepo domain.UserRepository,
+	userStorageCredRepo domain.UserStorageCredentialRepository,
 	authenticator domain.Authenticator,
 	mailer domain.Mailer,
 	passwordHasher domain.Hasher,
 	stringGenerator domain.StringGenerator,
+	storageProviderPool domain.StorageProviderPool,
 	htmlTemplates *htmlTemplate.Template,
 	textTemplates *textTemplate.Template,
 ) domain.UserService {
 	return &service{
-		userRepo:        userRepo,
-		authenticator:   authenticator,
-		mailer:          mailer,
-		passwordHasher:  passwordHasher,
-		stringGenerator: stringGenerator,
+		userRepo:            userRepo,
+		userStorageCredRepo: userStorageCredRepo,
+		authenticator:       authenticator,
+		mailer:              mailer,
+		passwordHasher:      passwordHasher,
+		stringGenerator:     stringGenerator,
+
+		storageProviderPool: storageProviderPool,
 
 		htmlTemplates: htmlTemplates,
 		textTemplates: textTemplates,
@@ -124,6 +132,8 @@ func (s *service) RequestPasswordRecovery(email string) error {
 	if err != nil {
 		return err
 	}
+
+	// TODO: check if user has already requested password recovery to avoid spam
 
 	token := s.stringGenerator.Generate()
 	tokenExpiry := time.Now().Add(time.Minute * 5)

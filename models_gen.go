@@ -7,16 +7,24 @@ import (
 )
 
 type Link struct {
-	ID          int        `json:"id"`
-	Title       string     `json:"title"`
-	IsProtected bool       `json:"isProtected"`
-	Slug        *string    `json:"slug"`
-	Description *string    `json:"description"`
-	Deadline    *time.Time `json:"deadline"`
+	ID              int              `json:"id"`
+	Title           string           `json:"title"`
+	IsProtected     bool             `json:"isProtected"`
+	Slug            *string          `json:"slug"`
+	Description     *string          `json:"description"`
+	Deadline        *time.Time       `json:"deadline"`
+	StorageProvider *StorageProvider `json:"storageProvider"`
 }
 
 type Message struct {
 	Message string `json:"message"`
+}
+
+type StorageProvider struct {
+	ID         int    `json:"id"`
+	ProviderID int    `json:"providerId"`
+	Email      string `json:"email"`
+	Photo      string `json:"photo"`
 }
 
 type Token struct {
@@ -24,10 +32,11 @@ type Token struct {
 }
 
 type User struct {
-	ID                int     `json:"id"`
-	Email             string  `json:"email"`
-	Name              string  `json:"name"`
-	DropboxAuthorized bool    `json:"dropboxAuthorized"`
-	DropboxEmail      *string `json:"dropboxEmail"`
-	DropboxAvatar     *string `json:"dropboxAvatar"`
+	ID                        int                `json:"id"`
+	Email                     string             `json:"email"`
+	Name                      string             `json:"name"`
+	DropboxAuthorized         bool               `json:"dropboxAuthorized"`
+	DropboxEmail              *string            `json:"dropboxEmail"`
+	DropboxAvatar             *string            `json:"dropboxAvatar"`
+	ConnectedStorageProviders []*StorageProvider `json:"connectedStorageProviders"`
 }

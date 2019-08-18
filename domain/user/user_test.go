@@ -6,6 +6,8 @@ import (
 	"testing"
 	"time"
 
+	"github.com/stretchr/testify/assert"
+
 	htmlTemplate "html/template"
 	textTemplate "text/template"
 
@@ -15,6 +17,7 @@ import (
 	"github.com/bccfilkom/drophere-go/infrastructure/database/inmemory"
 	"github.com/bccfilkom/drophere-go/infrastructure/hasher"
 	"github.com/bccfilkom/drophere-go/infrastructure/mailer"
+	"github.com/bccfilkom/drophere-go/infrastructure/storageprovider"
 	"github.com/bccfilkom/drophere-go/infrastructure/stringgenerator"
 )
 
@@ -25,6 +28,8 @@ var (
 	strGen        domain.StringGenerator
 	htmlTemplates *htmlTemplate.Template
 	textTemplates *textTemplate.Template
+
+	storageProviderPool domain.StorageProviderPool
 )
 
 func init() {
@@ -33,6 +38,9 @@ func init() {
 	strGen = stringgenerator.NewMock()
 	mockMailer = mailer.NewMockMailer()
 	stringgenerator.SetMockResult("this_is_not_a_random_string")
+	mockStorageProvider := storageprovider.NewMock()
+	storageProviderPool.Register(mockStorageProvider)
+
 	var err error
 
 	htmlTemplates, err = htmlTemplate.
@@ -50,9 +58,9 @@ func init() {
 	}
 }
 
-func newUserRepo() domain.UserRepository {
+func newRepo() (domain.UserRepository, domain.UserStorageCredentialRepository) {
 	memdb := inmemory.New()
-	return inmemory.NewUserRepository(memdb)
+	return inmemory.NewUserRepository(memdb), inmemory.NewUserStorageCredentialRepository(memdb)
 }
 
 func str2ptr(s string) *string {
@@ -77,12 +85,15 @@ func TestRegister(t *testing.T) {
 		{email: "new_user@drophere.link", name: "New User", password: "123456", wantErr: nil},
 	}
 
+	userRepo, userStorageCredRepo := newRepo()
 	userSvc := user.NewService(
-		newUserRepo(),
+		userRepo,
+		userStorageCredRepo,
 		authenticator,
 		mockMailer,
 		dummyHasher,
 		strGen,
+		storageProviderPool,
 		htmlTemplates,
 		textTemplates,
 	)
@@ -109,12 +120,15 @@ func TestAuth(t *testing.T) {
 		{email: "user@drophere.link", password: "123456", wantCreds: &domain.UserCredentials{Token: "user_token_1"}},
 	}
 
+	userRepo, userStorageCredRepo := newRepo()
 	userSvc := user.NewService(
-		newUserRepo(),
+		userRepo,
+		userStorageCredRepo,
 		authenticator,
 		mockMailer,
 		dummyHasher,
 		strGen,
+		storageProviderPool,
 		htmlTemplates,
 		textTemplates,
 	)
@@ -138,7 +152,7 @@ func TestUpdateStorageToken(t *testing.T) {
 		wantErr      error
 	}
 
-	userRepo := newUserRepo()
+	userRepo, userStorageCredRepo := newRepo()
 	u, _ := userRepo.FindByID(1)
 
 	tests := []test{
@@ -158,10 +172,12 @@ func TestUpdateStorageToken(t *testing.T) {
 
 	userSvc := user.NewService(
 		userRepo,
+		userStorageCredRepo,
 		authenticator,
 		mockMailer,
 		dummyHasher,
 		strGen,
+		storageProviderPool,
 		htmlTemplates,
 		textTemplates,
 	)
@@ -187,7 +203,7 @@ func TestUpdate(t *testing.T) {
 		wantErr     error
 	}
 
-	userRepo := newUserRepo()
+	userRepo, userStorageCredRepo := newRepo()
 	u, _ := userRepo.FindByID(1)
 
 	tests := []test{
@@ -210,10 +226,12 @@ func TestUpdate(t *testing.T) {
 
 	userSvc := user.NewService(
 		userRepo,
+		userStorageCredRepo,
 		authenticator,
 		mockMailer,
 		dummyHasher,
 		strGen,
+		storageProviderPool,
 		htmlTemplates,
 		textTemplates,
 	)
@@ -235,7 +253,7 @@ func TestRequestPasswordRecovery(t *testing.T) {
 		wantErr error
 	}
 
-	userRepo := newUserRepo()
+	userRepo, userStorageCredRepo := newRepo()
 	u, _ := userRepo.FindByEmail("reset+pwd@drophere.link")
 	expectedToken := str2ptr("this_is_not_a_random_string")
 	emailHTMLTemplate := htmlTemplates.Lookup("request_password_recovery_html")
@@ -264,10 +282,12 @@ func TestRequestPasswordRecovery(t *testing.T) {
 
 	userSvc := user.NewService(
 		userRepo,
+		userStorageCredRepo,
 		authenticator,
 		mockMailer,
 		dummyHasher,
 		strGen,
+		storageProviderPool,
 		htmlTemplates,
 		textTemplates,
 	)
@@ -305,7 +325,7 @@ func TestRecoverPassword(t *testing.T) {
 
 	recoverPasswordToken := "this_is_a_recover_password_token"
 
-	userRepo := newUserRepo()
+	userRepo, userStorageCredRepo := newRepo()
 	u, _ := userRepo.FindByEmail("reset+pwd@drophere.link")
 	u.RecoverPasswordToken = str2ptr(recoverPasswordToken)
 	u.RecoverPasswordTokenExpiry = time2ptr(time.Now().Add(30 * time.Minute))
@@ -339,7 +359,17 @@ func TestRecoverPassword(t *testing.T) {
 		},
 	}
 
-	userSvc := user.NewService(userRepo, authenticator, mockMailer, dummyHasher, strGen, htmlTemplates, textTemplates)
+	userSvc := user.NewService(
+		userRepo,
+		userStorageCredRepo,
+		authenticator,
+		mockMailer,
+		dummyHasher,
+		strGen,
+		storageProviderPool,
+		htmlTemplates,
+		textTemplates,
+	)
 
 	for i, tc := range tests {
 
@@ -353,6 +383,211 @@ func TestRecoverPassword(t *testing.T) {
 				t.Fatalf("test %d: expected: %+v, got: %+v", i, tc.expectedUser, u)
 			}
 		}
+
+	}
+}
+
+func TestConnectStorageProvider(t *testing.T) {
+	type test struct {
+		userID             uint
+		providerID         uint
+		providerCredential string
+		accountInfo        domain.StorageProviderAccountInfo
+		wantErr            error
+	}
+
+	userRepo, userStorageCredRepo := newRepo()
+	// user1, _ := userRepo.FindByID(1)
+
+	tests := []test{
+		{
+			userID:  123,
+			wantErr: domain.ErrStorageProviderInvalid,
+		},
+		{
+			userID:     123,
+			providerID: 1,
+			wantErr:    domain.ErrUserNotFound,
+		},
+		{
+			// update existing token
+			userID:             1,
+			providerID:         1,
+			providerCredential: "dropboxToken+0xbadc0de",
+			accountInfo: domain.StorageProviderAccountInfo{
+				Email: "user_1_another_email@drophere.link",
+				Photo: "https://my.photo/user_1.jpg",
+			},
+			wantErr: nil,
+		},
+		{
+			// create new record
+			userID:             357,
+			providerID:         1,
+			providerCredential: "mockStorageToken+0xbadc0de",
+			accountInfo: domain.StorageProviderAccountInfo{
+				Email: "user_357_another_email@drophere.link",
+				Photo: "https://my.photo/user_357.jpg",
+			},
+			wantErr: nil,
+		},
+	}
+
+	userSvc := user.NewService(
+		userRepo,
+		userStorageCredRepo,
+		authenticator,
+		mockMailer,
+		dummyHasher,
+		strGen,
+		storageProviderPool,
+		htmlTemplates,
+		textTemplates,
+	)
+
+	for i, tc := range tests {
+
+		storageprovider.SetSharedAccountInfo(tc.accountInfo)
+
+		gotErr := userSvc.ConnectStorageProvider(tc.userID, tc.providerID, tc.providerCredential)
+		if gotErr != tc.wantErr {
+			t.Fatalf("test %d: expected: %v, got: %v", i, tc.wantErr, gotErr)
+		}
+
+		if gotErr == nil {
+			ucs, _ := userStorageCredRepo.Find(domain.UserStorageCredentialFilters{
+				UserIDs: []uint{tc.userID},
+			}, false)
+
+			if tc.providerCredential != ucs[0].ProviderCredential {
+				t.Fatalf("test %d: expected: %v, got: %v", i, tc.providerCredential, ucs[0].ProviderCredential)
+			}
+
+			if tc.accountInfo.Email != ucs[0].Email {
+				t.Fatalf("test %d: expected: %v, got: %v", i, tc.accountInfo.Email, ucs[0].Email)
+			}
+
+			if tc.accountInfo.Photo != ucs[0].Photo {
+				t.Fatalf("test %d: expected: %v, got: %v", i, tc.accountInfo.Photo, ucs[0].Photo)
+			}
+
+		}
+
+	}
+}
+
+func TestDisconnectStorageProvider(t *testing.T) {
+	type test struct {
+		userID     uint
+		providerID uint
+		wantErr    error
+	}
+
+	userRepo, userStorageCredRepo := newRepo()
+	// user1, _ := userRepo.FindByID(1)
+
+	tests := []test{
+		{
+			userID:  123,
+			wantErr: domain.ErrStorageProviderInvalid,
+		},
+		{
+			userID:     123,
+			providerID: 1,
+			wantErr:    domain.ErrUserNotFound,
+		},
+		{
+			// delete existing token
+			userID:     1,
+			providerID: 1,
+			wantErr:    nil,
+		},
+		{
+			// delete empty record
+			userID:     357,
+			providerID: 1,
+			wantErr:    nil,
+		},
+	}
+
+	userSvc := user.NewService(
+		userRepo,
+		userStorageCredRepo,
+		authenticator,
+		mockMailer,
+		dummyHasher,
+		strGen,
+		storageProviderPool,
+		htmlTemplates,
+		textTemplates,
+	)
+
+	for i, tc := range tests {
+
+		gotErr := userSvc.DisconnectStorageProvider(tc.userID, tc.providerID)
+		if gotErr != tc.wantErr {
+			t.Fatalf("test %d: expected: %v, got: %v", i, tc.wantErr, gotErr)
+		}
+
+		if gotErr == nil {
+			ucs, _ := userStorageCredRepo.Find(domain.UserStorageCredentialFilters{
+				UserIDs:     []uint{tc.userID},
+				ProviderIDs: []uint{tc.providerID},
+			}, false)
+
+			if len(ucs) > 0 {
+				t.Fatalf("test %d: expected: %v, got: %v", i, nil, ucs)
+			}
+
+		}
+
+	}
+}
+
+func TestListStorageProviders(t *testing.T) {
+	type test struct {
+		userID            uint
+		expectedProviders []domain.UserStorageCredential
+		wantErr           error
+	}
+
+	userRepo, userStorageCredRepo := newRepo()
+	uscsUser1, _ := userStorageCredRepo.Find(domain.UserStorageCredentialFilters{
+		UserIDs: []uint{1},
+	}, false)
+
+	tests := []test{
+		{
+			// expect empty
+			userID:            123,
+			expectedProviders: []domain.UserStorageCredential{},
+			wantErr:           nil,
+		},
+		{
+			// expect non-empty credential
+			userID:            1,
+			expectedProviders: uscsUser1,
+			wantErr:           nil,
+		},
+	}
+
+	userSvc := user.NewService(
+		userRepo,
+		userStorageCredRepo,
+		authenticator,
+		mockMailer,
+		dummyHasher,
+		strGen,
+		storageProviderPool,
+		htmlTemplates,
+		textTemplates,
+	)
+
+	for _, tc := range tests {
+
+		uscs, gotErr := userSvc.ListStorageProviders(tc.userID)
+		assert.ElementsMatch(t, tc.expectedProviders, uscs)
+		assert.Equal(t, tc.wantErr, gotErr)
 
 	}
 }

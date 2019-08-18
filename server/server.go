@@ -11,12 +11,14 @@ import (
 	textTemplate "text/template"
 
 	drophere_go "github.com/bccfilkom/drophere-go"
+	"github.com/bccfilkom/drophere-go/domain"
 	"github.com/bccfilkom/drophere-go/domain/link"
 	"github.com/bccfilkom/drophere-go/domain/user"
 	"github.com/bccfilkom/drophere-go/infrastructure/auth"
 	"github.com/bccfilkom/drophere-go/infrastructure/database/mysql"
 	"github.com/bccfilkom/drophere-go/infrastructure/hasher"
 	"github.com/bccfilkom/drophere-go/infrastructure/mailer"
+	"github.com/bccfilkom/drophere-go/infrastructure/storageprovider"
 	"github.com/bccfilkom/drophere-go/infrastructure/stringgenerator"
 
 	"github.com/99designs/gqlgen/handler"
@@ -30,6 +32,8 @@ import (
 
 const defaultPort = "8080"
 
+var debug bool
+
 func main() {
 	viper.SetConfigName("config")
 	viper.SetConfigType("yaml")
@@ -42,6 +46,9 @@ func main() {
 
 	viper.SetEnvPrefix("DROPHERE")
 	viper.AutomaticEnv()
+
+	// set debug mode
+	debug = viper.GetBool("app.debug")
 
 	port := viper.GetString("PORT")
 	if port == "" {
@@ -57,6 +64,7 @@ func main() {
 	// initialize repositories
 	userRepo := mysql.NewUserRepository(db)
 	linkRepo := mysql.NewLinkRepository(db)
+	userStorageCredRepo := mysql.NewUserStorageCredentialRepository(db)
 
 	// initialize infrastructures
 	authenticator := auth.NewJWT(
@@ -72,6 +80,15 @@ func main() {
 	)
 	uuidGenerator := stringgenerator.NewUUID()
 
+	remoteDirectory := "drophere"
+	if remoteDirCfg := viper.GetString("app.storageRootDirectoryName"); remoteDirCfg != "" {
+		remoteDirectory = remoteDirCfg
+	}
+
+	dropboxService := storageprovider.NewDropboxStorageProvider(remoteDirectory)
+	storageProviderPool := domain.StorageProviderPool{}
+	storageProviderPool.Register(dropboxService)
+
 	basePath := viper.GetString("app.templatePath")
 	htmlTemplates, err := htmlTemplate.ParseGlob(filepath.Join(basePath, "html", "*.html"))
 	if err != nil {
@@ -86,14 +103,16 @@ func main() {
 	// initialize services
 	userSvc := user.NewService(
 		userRepo,
+		userStorageCredRepo,
 		authenticator,
 		mailtrap,
 		bcryptHasher,
 		uuidGenerator,
+		storageProviderPool,
 		htmlTemplates,
 		textTemplates,
 	)
-	linkSvc := link.NewService(linkRepo, bcryptHasher)
+	linkSvc := link.NewService(linkRepo, userStorageCredRepo, bcryptHasher)
 
 	resolver := drophere_go.NewResolver(userSvc, authenticator, linkSvc)
 
@@ -105,7 +124,7 @@ func main() {
 		AllowedOrigins:   []string{"*"},
 		AllowCredentials: true,
 		AllowedHeaders:   []string{"*"},
-		Debug:            !false,
+		Debug:            debug,
 	}).Handler)
 	router.Use(authenticator.Middleware())
 	router.Use(middleware.RequestID)
@@ -115,7 +134,7 @@ func main() {
 
 	router.Handle("/", handler.Playground("GraphQL playground", "/query"))
 	router.Handle("/query", handler.GraphQL(drophere_go.NewExecutableSchema(drophere_go.Config{Resolvers: resolver})))
-	router.Post("/uploadfile", fileUploadHandler(userSvc, linkSvc))
+	router.Post("/uploadfile", fileUploadHandler(userSvc, linkSvc, storageProviderPool))
 
 	log.Printf("connect to http://localhost:%s/ for GraphQL playground", port)
 	err = http.ListenAndServe(":"+port, router)
