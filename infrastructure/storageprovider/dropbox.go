@@ -71,7 +71,7 @@ func (d *dropbox) AccountInfo(cred domain.StorageProviderCredential) (domain.Sto
 	}
 
 	accountInfo.Email, _ = respBody["email"].(string)
-	accountInfo.Photo, _ = respBody["photo"].(string)
+	accountInfo.Photo, _ = respBody["profile_photo_url"].(string)
 
 	return accountInfo, nil
 }
