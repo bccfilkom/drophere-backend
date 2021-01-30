@@ -8,12 +8,21 @@ import (
 
 type service struct {
 	linkRepo       domain.LinkRepository
+	uscRepo        domain.UserStorageCredentialRepository
 	passwordHasher domain.Hasher
 }
 
 // NewService returns new service instance
-func NewService(linkRepo domain.LinkRepository, passwordHasher domain.Hasher) domain.LinkService {
-	return &service{linkRepo, passwordHasher}
+func NewService(
+	linkRepo domain.LinkRepository,
+	uscRepo domain.UserStorageCredentialRepository,
+	passwordHasher domain.Hasher,
+) domain.LinkService {
+	return &service{
+		linkRepo:       linkRepo,
+		uscRepo:        uscRepo,
+		passwordHasher: passwordHasher,
+	}
 }
 
 // CheckLinkPassword checks if user-inputted password match the hashed password
@@ -27,7 +36,7 @@ func (s *service) CheckLinkPassword(l *domain.Link, password string) bool {
 }
 
 // CreateLink creates new Link and store it to repository
-func (s *service) CreateLink(title, slug, description string, user *domain.User) (*domain.Link, error) {
+func (s *service) CreateLink(title, slug, description string, deadline *time.Time, password *string, user *domain.User, providerID *uint) (*domain.Link, error) {
 	l, err := s.linkRepo.FindBySlug(slug)
 	if err != nil && err != domain.ErrLinkNotFound {
 		return nil, err
@@ -42,13 +51,40 @@ func (s *service) CreateLink(title, slug, description string, user *domain.User)
 		Title:       title,
 		Slug:        slug,
 		Description: description,
+		Deadline:    deadline,
+	}
+
+	if password != nil && *password != "" {
+		l.Password, err = s.passwordHasher.Hash(*password)
+		if err != nil {
+			return nil, err
+		}
+	}
+
+	if providerID != nil && *providerID > 0 {
+		uscs, err := s.uscRepo.Find(
+			domain.UserStorageCredentialFilters{
+				UserIDs:     []uint{user.ID},
+				ProviderIDs: []uint{*providerID},
+			},
+			false,
+		)
+		if err != nil {
+			return nil, err
+		}
+
+		if len(uscs) < 1 {
+			return nil, domain.ErrUserStorageCredentialNotFound
+		}
+		l.UserStorageCredentialID = &(uscs[0].ID)
+		l.UserStorageCredential = &uscs[0]
 	}
 
 	return s.linkRepo.Create(l)
 }
 
 // UpdateLink updates existing Link and save it to repository
-func (s *service) UpdateLink(linkID uint, title, slug string, description *string, deadline *time.Time, password *string) (*domain.Link, error) {
+func (s *service) UpdateLink(linkID uint, title, slug string, description *string, deadline *time.Time, password *string, providerID *uint) (*domain.Link, error) {
 	l, err := s.linkRepo.FindByID(linkID)
 	if err != nil {
 		return nil, err
@@ -79,6 +115,33 @@ func (s *service) UpdateLink(linkID uint, title, slug string, description *strin
 			if err != nil {
 				return nil, err
 			}
+		}
+	}
+
+	// user can unset the UserStorageProviderID by passing 0 to providerID
+	if providerID != nil {
+		if *providerID <= 0 {
+			l.UserStorageCredentialID = nil
+			l.UserStorageCredential = nil
+		} else {
+			uscs, err := s.uscRepo.Find(
+				domain.UserStorageCredentialFilters{
+					UserIDs:     []uint{l.UserID},
+					ProviderIDs: []uint{*providerID},
+				},
+				false,
+			)
+
+			if err != nil {
+				return nil, err
+			}
+
+			if len(uscs) < 1 {
+				return nil, domain.ErrUserStorageCredentialNotFound
+			}
+			l.UserStorageCredentialID = &(uscs[0].ID)
+			l.UserStorageCredential = &uscs[0]
+
 		}
 	}
 

@@ -30,12 +30,15 @@ require (
 	github.com/prometheus/tsdb v0.8.0 // indirect
 	github.com/rogpeppe/fastuuid v1.1.0 // indirect
 	github.com/rs/cors v1.6.0
+	github.com/sendgrid/rest v2.4.1+incompatible // indirect
+	github.com/sendgrid/sendgrid-go v3.5.0+incompatible
 	github.com/sirupsen/logrus v1.4.2 // indirect
 	github.com/spaolacci/murmur3 v1.1.0 // indirect
 	github.com/spf13/afero v1.2.2 // indirect
 	github.com/spf13/jwalterweatherman v1.1.0 // indirect
 	github.com/spf13/viper v1.4.0
 	github.com/stretchr/objx v0.2.0 // indirect
+	github.com/stretchr/testify v1.4.0
 	github.com/vektah/gqlparser v1.1.2
 	golang.org/x/crypto v0.0.0-20190513172903-22d7a77e9e5f
 	golang.org/x/exp v0.0.0-20190510132918-efd6b22b2522 // indirect

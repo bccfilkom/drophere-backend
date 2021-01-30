@@ -8,8 +8,9 @@ import (
 
 // DB struct
 type DB struct {
-	users []domain.User
-	links []domain.Link
+	users            []domain.User
+	links            []domain.Link
+	userStorageCreds []domain.UserStorageCredential
 }
 
 // New func
@@ -51,8 +52,19 @@ func (db *DB) populate() {
 
 	db.links = []domain.Link{
 		{ID: 1, UserID: 1, User: &db.users[0], Title: "Drop file here", Slug: "drop-here", Password: "123098", Description: "drop a file here"},
-		{ID: 100, UserID: 1, User: &db.users[0], Title: "Test Link 2", Slug: "test-link-2", Password: "", Description: "no description"},
-		{ID: 101, UserID: 357, User: &db.users[1], Title: "Another link", Slug: "another-link", Password: "999", Description: "nil here"},
+		{ID: 2, UserID: 1, User: &db.users[0], Title: "Test Link 2", Slug: "test-link-2", Password: "", Description: "no description"},
+		{ID: 3, UserID: 357, User: &db.users[1], Title: "Another link", Slug: "another-link", Password: "999", Description: "nil here"},
+	}
+
+	db.userStorageCreds = []domain.UserStorageCredential{
+		{
+			ID:                 2000,
+			UserID:             1,
+			ProviderID:         1,
+			ProviderCredential: "user_1_mock_token",
+			Email:              "user@drophere.link",
+			Photo:              "http://my.photo/user1.jpg",
+		},
 	}
 }
 

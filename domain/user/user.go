@@ -2,6 +2,7 @@ package user
 
 import (
 	"bytes"
+	"fmt"
 	"time"
 
 	htmlTemplate "html/template"
@@ -10,36 +11,59 @@ import (
 	"github.com/bccfilkom/drophere-go/domain"
 )
 
+const defaultTokenExpiryDuration int = 5
+
+// Config model
+type Config struct {
+	PasswordRecoveryTokenExpiryDuration int
+	RecoverPasswordWebURL               string
+	MailerEmail                         string
+	MailerName                          string
+}
+
 type service struct {
-	userRepo        domain.UserRepository
-	authenticator   domain.Authenticator
-	mailer          domain.Mailer
-	passwordHasher  domain.Hasher
-	stringGenerator domain.StringGenerator
+	userRepo            domain.UserRepository
+	userStorageCredRepo domain.UserStorageCredentialRepository
+	authenticator       domain.Authenticator
+	mailer              domain.Mailer
+	passwordHasher      domain.Hasher
+	stringGenerator     domain.StringGenerator
+
+	storageProviderPool domain.StorageProviderPool
 
 	htmlTemplates *htmlTemplate.Template
 	textTemplates *textTemplate.Template
+
+	config Config
 }
 
 // NewService returns service instance
 func NewService(
 	userRepo domain.UserRepository,
+	userStorageCredRepo domain.UserStorageCredentialRepository,
 	authenticator domain.Authenticator,
 	mailer domain.Mailer,
 	passwordHasher domain.Hasher,
 	stringGenerator domain.StringGenerator,
+	storageProviderPool domain.StorageProviderPool,
 	htmlTemplates *htmlTemplate.Template,
 	textTemplates *textTemplate.Template,
+	config Config,
 ) domain.UserService {
 	return &service{
-		userRepo:        userRepo,
-		authenticator:   authenticator,
-		mailer:          mailer,
-		passwordHasher:  passwordHasher,
-		stringGenerator: stringGenerator,
+		userRepo:            userRepo,
+		userStorageCredRepo: userStorageCredRepo,
+		authenticator:       authenticator,
+		mailer:              mailer,
+		passwordHasher:      passwordHasher,
+		stringGenerator:     stringGenerator,
+
+		storageProviderPool: storageProviderPool,
 
 		htmlTemplates: htmlTemplates,
 		textTemplates: textTemplates,
+
+		config: config,
 	}
 }
 
@@ -125,8 +149,14 @@ func (s *service) RequestPasswordRecovery(email string) error {
 		return err
 	}
 
+	// TODO: check if user has already requested password recovery to avoid spam
+	tokenExpiryDuration := defaultTokenExpiryDuration
+	if s.config.PasswordRecoveryTokenExpiryDuration > 0 {
+		tokenExpiryDuration = s.config.PasswordRecoveryTokenExpiryDuration
+	}
+
 	token := s.stringGenerator.Generate()
-	tokenExpiry := time.Now().Add(time.Minute * 5)
+	tokenExpiry := time.Now().Add(time.Minute * time.Duration(tokenExpiryDuration))
 	u.RecoverPasswordToken = &token
 	u.RecoverPasswordTokenExpiry = &tokenExpiry
 
@@ -143,6 +173,7 @@ func (s *service) RequestPasswordRecovery(email string) error {
 			Name:    u.Name,
 		},
 		"Recover Password",
+		u.Email,
 		token,
 	)
 	if err != nil {
@@ -152,7 +183,7 @@ func (s *service) RequestPasswordRecovery(email string) error {
 	return nil
 }
 
-func (s *service) sendPasswordRecoveryTokenToEmail(to domain.MailAddress, subject, token string) error {
+func (s *service) sendPasswordRecoveryTokenToEmail(to domain.MailAddress, subject, email, token string) error {
 
 	// preparing template
 	htmlTmpl := s.htmlTemplates.Lookup("request_password_recovery_html")
@@ -167,6 +198,12 @@ func (s *service) sendPasswordRecoveryTokenToEmail(to domain.MailAddress, subjec
 
 	// preparing template content
 	messageData := map[string]string{
+		"ResetPasswordLink": fmt.Sprintf(
+			"%s?token=%s&email=%s",
+			s.config.RecoverPasswordWebURL,
+			token,
+			email,
+		),
 		"Token": token,
 	}
 
@@ -177,12 +214,22 @@ func (s *service) sendPasswordRecoveryTokenToEmail(to domain.MailAddress, subjec
 	textMessage := &bytes.Buffer{}
 	textTmpl.Execute(textMessage, messageData)
 
+	from := domain.MailAddress{
+		Address: "admin@drophere.link",
+		Name:    "Drophere Bot",
+	}
+
+	if s.config.MailerEmail != "" {
+		from.Address = s.config.MailerEmail
+	}
+
+	if s.config.MailerName != "" {
+		from.Name = s.config.MailerName
+	}
+
 	// send email
 	return s.mailer.Send(
-		domain.MailAddress{
-			Address: "admin@drophere.link",
-			Name:    "Drophere Bot",
-		},
+		from,
 		to,
 		subject,
 		textMessage.String(),

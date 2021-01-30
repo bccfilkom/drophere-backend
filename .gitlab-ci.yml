@@ -1,0 +1,57 @@
+image: docker:stable
+
+variables:
+  DOCKER_DRIVER: overlay2
+  VERSION: 0.1.0
+
+stages:
+  - build
+  - package
+
+compile binary:
+  stage: build
+  image: golang:1.12.6-stretch
+  before_script:
+    - go version
+    # installing dependencies
+    - go get ./...
+  variables:
+    CGO_ENABLED: "1"
+  script:
+    - ls -hal
+    - go test -v -coverprofile cover.out ./...
+    - mkdir build
+    - go build -v -tags netgo -o build/drophere-service server/*.go
+    - cp -vr files build/
+    - ls -hal build
+  artifacts:
+    paths:
+      - build/drophere-service
+      - build/files
+  only:
+    - develop
+    - tags
+
+package staging:
+  stage: package
+  services:
+    - docker:dind
+  variables:
+    IMAGE_TAG: $CI_REGISTRY_IMAGE:staging-$VERSION
+    IMAGE_TAG_LATEST: $CI_REGISTRY_IMAGE:staging-latest
+  before_script:
+    - docker info
+  script:
+    # Copy configuration file
+    - cp -vr config.sample.yaml build/config.yaml
+    - ls -hal build
+    # Build Docker image
+    - docker login -u gitlab-ci-token -p $CI_JOB_TOKEN $CI_REGISTRY
+    - docker build -t $IMAGE_TAG .
+    - docker tag $IMAGE_TAG $IMAGE_TAG_LATEST
+    - docker push $CI_REGISTRY_IMAGE
+  artifacts:
+    paths:
+      - build/config.yaml
+  only:
+    - develop

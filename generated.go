@@ -43,12 +43,13 @@ type DirectiveRoot struct {
 
 type ComplexityRoot struct {
 	Link struct {
-		Deadline    func(childComplexity int) int
-		Description func(childComplexity int) int
-		ID          func(childComplexity int) int
-		IsProtected func(childComplexity int) int
-		Slug        func(childComplexity int) int
-		Title       func(childComplexity int) int
+		Deadline        func(childComplexity int) int
+		Description     func(childComplexity int) int
+		ID              func(childComplexity int) int
+		IsProtected     func(childComplexity int) int
+		Slug            func(childComplexity int) int
+		StorageProvider func(childComplexity int) int
+		Title           func(childComplexity int) int
 	}
 
 	Message struct {
@@ -57,15 +58,15 @@ type ComplexityRoot struct {
 
 	Mutation struct {
 		CheckLinkPassword         func(childComplexity int, linkID int, password string) int
-		ConnectStorageProvider    func(childComplexity int, providerKey int, providerToken string) int
-		CreateLink                func(childComplexity int, title string, slug string, description *string, deadline *time.Time, password *string) int
+		ConnectStorageProvider    func(childComplexity int, providerID int, providerToken string) int
+		CreateLink                func(childComplexity int, title string, slug string, description *string, deadline *time.Time, password *string, providerID *int) int
 		DeleteLink                func(childComplexity int, linkID int) int
-		DisconnectStorageProvider func(childComplexity int, providerKey int) int
+		DisconnectStorageProvider func(childComplexity int, providerID int) int
 		Login                     func(childComplexity int, email string, password string) int
 		RecoverPassword           func(childComplexity int, email string, recoverToken string, newPassword string) int
 		Register                  func(childComplexity int, email string, password string, name string) int
 		RequestPasswordRecovery   func(childComplexity int, email string) int
-		UpdateLink                func(childComplexity int, linkID int, title string, slug string, description *string, deadline *time.Time, password *string) int
+		UpdateLink                func(childComplexity int, linkID int, title string, slug string, description *string, deadline *time.Time, password *string, providerID *int) int
 		UpdatePassword            func(childComplexity int, oldPassword string, newPassword string) int
 		UpdateProfile             func(childComplexity int, newName string) int
 	}
@@ -76,17 +77,25 @@ type ComplexityRoot struct {
 		Me    func(childComplexity int) int
 	}
 
+	StorageProvider struct {
+		Email      func(childComplexity int) int
+		ID         func(childComplexity int) int
+		Photo      func(childComplexity int) int
+		ProviderID func(childComplexity int) int
+	}
+
 	Token struct {
 		LoginToken func(childComplexity int) int
 	}
 
 	User struct {
-		DropboxAuthorized func(childComplexity int) int
-		DropboxAvatar     func(childComplexity int) int
-		DropboxEmail      func(childComplexity int) int
-		Email             func(childComplexity int) int
-		ID                func(childComplexity int) int
-		Name              func(childComplexity int) int
+		ConnectedStorageProviders func(childComplexity int) int
+		DropboxAuthorized         func(childComplexity int) int
+		DropboxAvatar             func(childComplexity int) int
+		DropboxEmail              func(childComplexity int) int
+		Email                     func(childComplexity int) int
+		ID                        func(childComplexity int) int
+		Name                      func(childComplexity int) int
 	}
 }
 
@@ -97,10 +106,10 @@ type MutationResolver interface {
 	RecoverPassword(ctx context.Context, email string, recoverToken string, newPassword string) (*Token, error)
 	UpdatePassword(ctx context.Context, oldPassword string, newPassword string) (*Message, error)
 	UpdateProfile(ctx context.Context, newName string) (*Message, error)
-	ConnectStorageProvider(ctx context.Context, providerKey int, providerToken string) (*Message, error)
-	DisconnectStorageProvider(ctx context.Context, providerKey int) (*Message, error)
-	CreateLink(ctx context.Context, title string, slug string, description *string, deadline *time.Time, password *string) (*Link, error)
-	UpdateLink(ctx context.Context, linkID int, title string, slug string, description *string, deadline *time.Time, password *string) (*Message, error)
+	ConnectStorageProvider(ctx context.Context, providerID int, providerToken string) (*Message, error)
+	DisconnectStorageProvider(ctx context.Context, providerID int) (*Message, error)
+	CreateLink(ctx context.Context, title string, slug string, description *string, deadline *time.Time, password *string, providerID *int) (*Link, error)
+	UpdateLink(ctx context.Context, linkID int, title string, slug string, description *string, deadline *time.Time, password *string, providerID *int) (*Link, error)
 	DeleteLink(ctx context.Context, linkID int) (*Message, error)
 	CheckLinkPassword(ctx context.Context, linkID int, password string) (*Message, error)
 }
@@ -160,6 +169,13 @@ func (e *executableSchema) Complexity(typeName, field string, childComplexity in
 
 		return e.complexity.Link.Slug(childComplexity), true
 
+	case "Link.storageProvider":
+		if e.complexity.Link.StorageProvider == nil {
+			break
+		}
+
+		return e.complexity.Link.StorageProvider(childComplexity), true
+
 	case "Link.title":
 		if e.complexity.Link.Title == nil {
 			break
@@ -196,7 +212,7 @@ func (e *executableSchema) Complexity(typeName, field string, childComplexity in
 			return 0, false
 		}
 
-		return e.complexity.Mutation.ConnectStorageProvider(childComplexity, args["providerKey"].(int), args["providerToken"].(string)), true
+		return e.complexity.Mutation.ConnectStorageProvider(childComplexity, args["providerId"].(int), args["providerToken"].(string)), true
 
 	case "Mutation.createLink":
 		if e.complexity.Mutation.CreateLink == nil {
@@ -208,7 +224,7 @@ func (e *executableSchema) Complexity(typeName, field string, childComplexity in
 			return 0, false
 		}
 
-		return e.complexity.Mutation.CreateLink(childComplexity, args["title"].(string), args["slug"].(string), args["description"].(*string), args["deadline"].(*time.Time), args["password"].(*string)), true
+		return e.complexity.Mutation.CreateLink(childComplexity, args["title"].(string), args["slug"].(string), args["description"].(*string), args["deadline"].(*time.Time), args["password"].(*string), args["providerId"].(*int)), true
 
 	case "Mutation.deleteLink":
 		if e.complexity.Mutation.DeleteLink == nil {
@@ -232,7 +248,7 @@ func (e *executableSchema) Complexity(typeName, field string, childComplexity in
 			return 0, false
 		}
 
-		return e.complexity.Mutation.DisconnectStorageProvider(childComplexity, args["providerKey"].(int)), true
+		return e.complexity.Mutation.DisconnectStorageProvider(childComplexity, args["providerId"].(int)), true
 
 	case "Mutation.login":
 		if e.complexity.Mutation.Login == nil {
@@ -292,7 +308,7 @@ func (e *executableSchema) Complexity(typeName, field string, childComplexity in
 			return 0, false
 		}
 
-		return e.complexity.Mutation.UpdateLink(childComplexity, args["linkId"].(int), args["title"].(string), args["slug"].(string), args["description"].(*string), args["deadline"].(*time.Time), args["password"].(*string)), true
+		return e.complexity.Mutation.UpdateLink(childComplexity, args["linkId"].(int), args["title"].(string), args["slug"].(string), args["description"].(*string), args["deadline"].(*time.Time), args["password"].(*string), args["providerId"].(*int)), true
 
 	case "Mutation.updatePassword":
 		if e.complexity.Mutation.UpdatePassword == nil {
@@ -344,12 +360,47 @@ func (e *executableSchema) Complexity(typeName, field string, childComplexity in
 
 		return e.complexity.Query.Me(childComplexity), true
 
+	case "StorageProvider.email":
+		if e.complexity.StorageProvider.Email == nil {
+			break
+		}
+
+		return e.complexity.StorageProvider.Email(childComplexity), true
+
+	case "StorageProvider.id":
+		if e.complexity.StorageProvider.ID == nil {
+			break
+		}
+
+		return e.complexity.StorageProvider.ID(childComplexity), true
+
+	case "StorageProvider.photo":
+		if e.complexity.StorageProvider.Photo == nil {
+			break
+		}
+
+		return e.complexity.StorageProvider.Photo(childComplexity), true
+
+	case "StorageProvider.providerId":
+		if e.complexity.StorageProvider.ProviderID == nil {
+			break
+		}
+
+		return e.complexity.StorageProvider.ProviderID(childComplexity), true
+
 	case "Token.loginToken":
 		if e.complexity.Token.LoginToken == nil {
 			break
 		}
 
 		return e.complexity.Token.LoginToken(childComplexity), true
+
+	case "User.connectedStorageProviders":
+		if e.complexity.User.ConnectedStorageProviders == nil {
+			break
+		}
+
+		return e.complexity.User.ConnectedStorageProviders(childComplexity), true
 
 	case "User.dropboxAuthorized":
 		if e.complexity.User.DropboxAuthorized == nil {
@@ -472,6 +523,13 @@ func (ec *executionContext) introspectType(name string) (*introspection.Type, er
 var parsedSchema = gqlparser.MustLoadSchema(
 	&ast.Source{Name: "schema.graphql", Input: `scalar Time
 
+type StorageProvider {
+  id: Int!
+  providerId: Int!
+  email: String!
+  photo: String!
+}
+
 type User {
   id: Int!
   email: String!
@@ -479,9 +537,11 @@ type User {
   dropboxAuthorized: Boolean!
   dropboxEmail: String
   dropboxAvatar: String
+  connectedStorageProviders: [StorageProvider!]!
 }
 type Token {
   loginToken: String!
+  #expiry: Time
 }
 type Link {
   id: Int!
@@ -490,6 +550,8 @@ type Link {
   slug: String
   description: String
   deadline: Time
+  storageProvider: StorageProvider
+  ## storageProvider is null if the link is not connected to any storage provider
 }
 type Message {
   message: String!
@@ -497,6 +559,7 @@ type Message {
 
 # the schema allows the following query:
 type Query {
+  ## TODO: change links type below to [Link!]!
   links: [Link]
   me: User
   link(slug: String!): Link 
@@ -509,10 +572,10 @@ type Mutation {
   recoverPassword(email: String!, recoverToken: String!, newPassword: String!): Token
   updatePassword(oldPassword: String!, newPassword: String!): Message
   updateProfile(newName: String!): Message
-  connectStorageProvider(providerKey: Int!, providerToken: String!): Message
-  disconnectStorageProvider(providerKey: Int!): Message
-  createLink(title:  String!,slug: String!, description: String, deadline: Time, password: String): Link
-  updateLink(linkId: Int!, title:  String!, slug: String!, description: String, deadline: Time, password: String): Message
+  connectStorageProvider(providerId: Int!, providerToken: String!): Message
+  disconnectStorageProvider(providerId: Int!): Message
+  createLink(title:  String!, slug: String!, description: String, deadline: Time, password: String, providerId: Int): Link
+  updateLink(linkId: Int!, title:  String!, slug: String!, description: String, deadline: Time, password: String, providerId: Int): Link
   deleteLink(linkId: Int!): Message
   checkLinkPassword(linkId: Int!, password: String!): Message
 }
@@ -550,13 +613,13 @@ func (ec *executionContext) field_Mutation_connectStorageProvider_args(ctx conte
 	var err error
 	args := map[string]interface{}{}
 	var arg0 int
-	if tmp, ok := rawArgs["providerKey"]; ok {
+	if tmp, ok := rawArgs["providerId"]; ok {
 		arg0, err = ec.unmarshalNInt2int(ctx, tmp)
 		if err != nil {
 			return nil, err
 		}
 	}
-	args["providerKey"] = arg0
+	args["providerId"] = arg0
 	var arg1 string
 	if tmp, ok := rawArgs["providerToken"]; ok {
 		arg1, err = ec.unmarshalNString2string(ctx, tmp)
@@ -611,6 +674,14 @@ func (ec *executionContext) field_Mutation_createLink_args(ctx context.Context, 
 		}
 	}
 	args["password"] = arg4
+	var arg5 *int
+	if tmp, ok := rawArgs["providerId"]; ok {
+		arg5, err = ec.unmarshalOInt2ᚖint(ctx, tmp)
+		if err != nil {
+			return nil, err
+		}
+	}
+	args["providerId"] = arg5
 	return args, nil
 }
 
@@ -632,13 +703,13 @@ func (ec *executionContext) field_Mutation_disconnectStorageProvider_args(ctx co
 	var err error
 	args := map[string]interface{}{}
 	var arg0 int
-	if tmp, ok := rawArgs["providerKey"]; ok {
+	if tmp, ok := rawArgs["providerId"]; ok {
 		arg0, err = ec.unmarshalNInt2int(ctx, tmp)
 		if err != nil {
 			return nil, err
 		}
 	}
-	args["providerKey"] = arg0
+	args["providerId"] = arg0
 	return args, nil
 }
 
@@ -789,6 +860,14 @@ func (ec *executionContext) field_Mutation_updateLink_args(ctx context.Context, 
 		}
 	}
 	args["password"] = arg5
+	var arg6 *int
+	if tmp, ok := rawArgs["providerId"]; ok {
+		arg6, err = ec.unmarshalOInt2ᚖint(ctx, tmp)
+		if err != nil {
+			return nil, err
+		}
+	}
+	args["providerId"] = arg6
 	return args, nil
 }
 
@@ -1041,6 +1120,30 @@ func (ec *executionContext) _Link_deadline(ctx context.Context, field graphql.Co
 	return ec.marshalOTime2ᚖtimeᚐTime(ctx, field.Selections, res)
 }
 
+func (ec *executionContext) _Link_storageProvider(ctx context.Context, field graphql.CollectedField, obj *Link) graphql.Marshaler {
+	ctx = ec.Tracer.StartFieldExecution(ctx, field)
+	defer func() { ec.Tracer.EndFieldExecution(ctx) }()
+	rctx := &graphql.ResolverContext{
+		Object:   "Link",
+		Field:    field,
+		Args:     nil,
+		IsMethod: false,
+	}
+	ctx = graphql.WithResolverContext(ctx, rctx)
+	ctx = ec.Tracer.StartFieldResolverExecution(ctx, rctx)
+	resTmp := ec.FieldMiddleware(ctx, obj, func(rctx context.Context) (interface{}, error) {
+		ctx = rctx // use context from middleware stack in children
+		return obj.StorageProvider, nil
+	})
+	if resTmp == nil {
+		return graphql.Null
+	}
+	res := resTmp.(*StorageProvider)
+	rctx.Result = res
+	ctx = ec.Tracer.StartFieldChildExecution(ctx)
+	return ec.marshalOStorageProvider2ᚖgithubᚗcomᚋbccfilkomᚋdrophereᚑgoᚐStorageProvider(ctx, field.Selections, res)
+}
+
 func (ec *executionContext) _Message_message(ctx context.Context, field graphql.CollectedField, obj *Message) graphql.Marshaler {
 	ctx = ec.Tracer.StartFieldExecution(ctx, field)
 	defer func() { ec.Tracer.EndFieldExecution(ctx) }()
@@ -1274,7 +1377,7 @@ func (ec *executionContext) _Mutation_connectStorageProvider(ctx context.Context
 	ctx = ec.Tracer.StartFieldResolverExecution(ctx, rctx)
 	resTmp := ec.FieldMiddleware(ctx, nil, func(rctx context.Context) (interface{}, error) {
 		ctx = rctx // use context from middleware stack in children
-		return ec.resolvers.Mutation().ConnectStorageProvider(rctx, args["providerKey"].(int), args["providerToken"].(string))
+		return ec.resolvers.Mutation().ConnectStorageProvider(rctx, args["providerId"].(int), args["providerToken"].(string))
 	})
 	if resTmp == nil {
 		return graphql.Null
@@ -1305,7 +1408,7 @@ func (ec *executionContext) _Mutation_disconnectStorageProvider(ctx context.Cont
 	ctx = ec.Tracer.StartFieldResolverExecution(ctx, rctx)
 	resTmp := ec.FieldMiddleware(ctx, nil, func(rctx context.Context) (interface{}, error) {
 		ctx = rctx // use context from middleware stack in children
-		return ec.resolvers.Mutation().DisconnectStorageProvider(rctx, args["providerKey"].(int))
+		return ec.resolvers.Mutation().DisconnectStorageProvider(rctx, args["providerId"].(int))
 	})
 	if resTmp == nil {
 		return graphql.Null
@@ -1336,7 +1439,7 @@ func (ec *executionContext) _Mutation_createLink(ctx context.Context, field grap
 	ctx = ec.Tracer.StartFieldResolverExecution(ctx, rctx)
 	resTmp := ec.FieldMiddleware(ctx, nil, func(rctx context.Context) (interface{}, error) {
 		ctx = rctx // use context from middleware stack in children
-		return ec.resolvers.Mutation().CreateLink(rctx, args["title"].(string), args["slug"].(string), args["description"].(*string), args["deadline"].(*time.Time), args["password"].(*string))
+		return ec.resolvers.Mutation().CreateLink(rctx, args["title"].(string), args["slug"].(string), args["description"].(*string), args["deadline"].(*time.Time), args["password"].(*string), args["providerId"].(*int))
 	})
 	if resTmp == nil {
 		return graphql.Null
@@ -1367,15 +1470,15 @@ func (ec *executionContext) _Mutation_updateLink(ctx context.Context, field grap
 	ctx = ec.Tracer.StartFieldResolverExecution(ctx, rctx)
 	resTmp := ec.FieldMiddleware(ctx, nil, func(rctx context.Context) (interface{}, error) {
 		ctx = rctx // use context from middleware stack in children
-		return ec.resolvers.Mutation().UpdateLink(rctx, args["linkId"].(int), args["title"].(string), args["slug"].(string), args["description"].(*string), args["deadline"].(*time.Time), args["password"].(*string))
+		return ec.resolvers.Mutation().UpdateLink(rctx, args["linkId"].(int), args["title"].(string), args["slug"].(string), args["description"].(*string), args["deadline"].(*time.Time), args["password"].(*string), args["providerId"].(*int))
 	})
 	if resTmp == nil {
 		return graphql.Null
 	}
-	res := resTmp.(*Message)
+	res := resTmp.(*Link)
 	rctx.Result = res
 	ctx = ec.Tracer.StartFieldChildExecution(ctx)
-	return ec.marshalOMessage2ᚖgithubᚗcomᚋbccfilkomᚋdrophereᚑgoᚐMessage(ctx, field.Selections, res)
+	return ec.marshalOLink2ᚖgithubᚗcomᚋbccfilkomᚋdrophereᚑgoᚐLink(ctx, field.Selections, res)
 }
 
 func (ec *executionContext) _Mutation_deleteLink(ctx context.Context, field graphql.CollectedField) graphql.Marshaler {
@@ -1574,6 +1677,114 @@ func (ec *executionContext) _Query___schema(ctx context.Context, field graphql.C
 	return ec.marshalO__Schema2ᚖgithubᚗcomᚋ99designsᚋgqlgenᚋgraphqlᚋintrospectionᚐSchema(ctx, field.Selections, res)
 }
 
+func (ec *executionContext) _StorageProvider_id(ctx context.Context, field graphql.CollectedField, obj *StorageProvider) graphql.Marshaler {
+	ctx = ec.Tracer.StartFieldExecution(ctx, field)
+	defer func() { ec.Tracer.EndFieldExecution(ctx) }()
+	rctx := &graphql.ResolverContext{
+		Object:   "StorageProvider",
+		Field:    field,
+		Args:     nil,
+		IsMethod: false,
+	}
+	ctx = graphql.WithResolverContext(ctx, rctx)
+	ctx = ec.Tracer.StartFieldResolverExecution(ctx, rctx)
+	resTmp := ec.FieldMiddleware(ctx, obj, func(rctx context.Context) (interface{}, error) {
+		ctx = rctx // use context from middleware stack in children
+		return obj.ID, nil
+	})
+	if resTmp == nil {
+		if !ec.HasError(rctx) {
+			ec.Errorf(ctx, "must not be null")
+		}
+		return graphql.Null
+	}
+	res := resTmp.(int)
+	rctx.Result = res
+	ctx = ec.Tracer.StartFieldChildExecution(ctx)
+	return ec.marshalNInt2int(ctx, field.Selections, res)
+}
+
+func (ec *executionContext) _StorageProvider_providerId(ctx context.Context, field graphql.CollectedField, obj *StorageProvider) graphql.Marshaler {
+	ctx = ec.Tracer.StartFieldExecution(ctx, field)
+	defer func() { ec.Tracer.EndFieldExecution(ctx) }()
+	rctx := &graphql.ResolverContext{
+		Object:   "StorageProvider",
+		Field:    field,
+		Args:     nil,
+		IsMethod: false,
+	}
+	ctx = graphql.WithResolverContext(ctx, rctx)
+	ctx = ec.Tracer.StartFieldResolverExecution(ctx, rctx)
+	resTmp := ec.FieldMiddleware(ctx, obj, func(rctx context.Context) (interface{}, error) {
+		ctx = rctx // use context from middleware stack in children
+		return obj.ProviderID, nil
+	})
+	if resTmp == nil {
+		if !ec.HasError(rctx) {
+			ec.Errorf(ctx, "must not be null")
+		}
+		return graphql.Null
+	}
+	res := resTmp.(int)
+	rctx.Result = res
+	ctx = ec.Tracer.StartFieldChildExecution(ctx)
+	return ec.marshalNInt2int(ctx, field.Selections, res)
+}
+
+func (ec *executionContext) _StorageProvider_email(ctx context.Context, field graphql.CollectedField, obj *StorageProvider) graphql.Marshaler {
+	ctx = ec.Tracer.StartFieldExecution(ctx, field)
+	defer func() { ec.Tracer.EndFieldExecution(ctx) }()
+	rctx := &graphql.ResolverContext{
+		Object:   "StorageProvider",
+		Field:    field,
+		Args:     nil,
+		IsMethod: false,
+	}
+	ctx = graphql.WithResolverContext(ctx, rctx)
+	ctx = ec.Tracer.StartFieldResolverExecution(ctx, rctx)
+	resTmp := ec.FieldMiddleware(ctx, obj, func(rctx context.Context) (interface{}, error) {
+		ctx = rctx // use context from middleware stack in children
+		return obj.Email, nil
+	})
+	if resTmp == nil {
+		if !ec.HasError(rctx) {
+			ec.Errorf(ctx, "must not be null")
+		}
+		return graphql.Null
+	}
+	res := resTmp.(string)
+	rctx.Result = res
+	ctx = ec.Tracer.StartFieldChildExecution(ctx)
+	return ec.marshalNString2string(ctx, field.Selections, res)
+}
+
+func (ec *executionContext) _StorageProvider_photo(ctx context.Context, field graphql.CollectedField, obj *StorageProvider) graphql.Marshaler {
+	ctx = ec.Tracer.StartFieldExecution(ctx, field)
+	defer func() { ec.Tracer.EndFieldExecution(ctx) }()
+	rctx := &graphql.ResolverContext{
+		Object:   "StorageProvider",
+		Field:    field,
+		Args:     nil,
+		IsMethod: false,
+	}
+	ctx = graphql.WithResolverContext(ctx, rctx)
+	ctx = ec.Tracer.StartFieldResolverExecution(ctx, rctx)
+	resTmp := ec.FieldMiddleware(ctx, obj, func(rctx context.Context) (interface{}, error) {
+		ctx = rctx // use context from middleware stack in children
+		return obj.Photo, nil
+	})
+	if resTmp == nil {
+		if !ec.HasError(rctx) {
+			ec.Errorf(ctx, "must not be null")
+		}
+		return graphql.Null
+	}
+	res := resTmp.(string)
+	rctx.Result = res
+	ctx = ec.Tracer.StartFieldChildExecution(ctx)
+	return ec.marshalNString2string(ctx, field.Selections, res)
+}
+
 func (ec *executionContext) _Token_loginToken(ctx context.Context, field graphql.CollectedField, obj *Token) graphql.Marshaler {
 	ctx = ec.Tracer.StartFieldExecution(ctx, field)
 	defer func() { ec.Tracer.EndFieldExecution(ctx) }()
@@ -1755,6 +1966,33 @@ func (ec *executionContext) _User_dropboxAvatar(ctx context.Context, field graph
 	rctx.Result = res
 	ctx = ec.Tracer.StartFieldChildExecution(ctx)
 	return ec.marshalOString2ᚖstring(ctx, field.Selections, res)
+}
+
+func (ec *executionContext) _User_connectedStorageProviders(ctx context.Context, field graphql.CollectedField, obj *User) graphql.Marshaler {
+	ctx = ec.Tracer.StartFieldExecution(ctx, field)
+	defer func() { ec.Tracer.EndFieldExecution(ctx) }()
+	rctx := &graphql.ResolverContext{
+		Object:   "User",
+		Field:    field,
+		Args:     nil,
+		IsMethod: false,
+	}
+	ctx = graphql.WithResolverContext(ctx, rctx)
+	ctx = ec.Tracer.StartFieldResolverExecution(ctx, rctx)
+	resTmp := ec.FieldMiddleware(ctx, obj, func(rctx context.Context) (interface{}, error) {
+		ctx = rctx // use context from middleware stack in children
+		return obj.ConnectedStorageProviders, nil
+	})
+	if resTmp == nil {
+		if !ec.HasError(rctx) {
+			ec.Errorf(ctx, "must not be null")
+		}
+		return graphql.Null
+	}
+	res := resTmp.([]*StorageProvider)
+	rctx.Result = res
+	ctx = ec.Tracer.StartFieldChildExecution(ctx)
+	return ec.marshalNStorageProvider2ᚕᚖgithubᚗcomᚋbccfilkomᚋdrophereᚑgoᚐStorageProvider(ctx, field.Selections, res)
 }
 
 func (ec *executionContext) ___Directive_name(ctx context.Context, field graphql.CollectedField, obj *introspection.Directive) graphql.Marshaler {
@@ -2628,6 +2866,8 @@ func (ec *executionContext) _Link(ctx context.Context, sel ast.SelectionSet, obj
 			out.Values[i] = ec._Link_description(ctx, field, obj)
 		case "deadline":
 			out.Values[i] = ec._Link_deadline(ctx, field, obj)
+		case "storageProvider":
+			out.Values[i] = ec._Link_storageProvider(ctx, field, obj)
 		default:
 			panic("unknown field " + strconv.Quote(field.Name))
 		}
@@ -2779,6 +3019,48 @@ func (ec *executionContext) _Query(ctx context.Context, sel ast.SelectionSet) gr
 	return out
 }
 
+var storageProviderImplementors = []string{"StorageProvider"}
+
+func (ec *executionContext) _StorageProvider(ctx context.Context, sel ast.SelectionSet, obj *StorageProvider) graphql.Marshaler {
+	fields := graphql.CollectFields(ec.RequestContext, sel, storageProviderImplementors)
+
+	out := graphql.NewFieldSet(fields)
+	var invalids uint32
+	for i, field := range fields {
+		switch field.Name {
+		case "__typename":
+			out.Values[i] = graphql.MarshalString("StorageProvider")
+		case "id":
+			out.Values[i] = ec._StorageProvider_id(ctx, field, obj)
+			if out.Values[i] == graphql.Null {
+				invalids++
+			}
+		case "providerId":
+			out.Values[i] = ec._StorageProvider_providerId(ctx, field, obj)
+			if out.Values[i] == graphql.Null {
+				invalids++
+			}
+		case "email":
+			out.Values[i] = ec._StorageProvider_email(ctx, field, obj)
+			if out.Values[i] == graphql.Null {
+				invalids++
+			}
+		case "photo":
+			out.Values[i] = ec._StorageProvider_photo(ctx, field, obj)
+			if out.Values[i] == graphql.Null {
+				invalids++
+			}
+		default:
+			panic("unknown field " + strconv.Quote(field.Name))
+		}
+	}
+	out.Dispatch()
+	if invalids > 0 {
+		return graphql.Null
+	}
+	return out
+}
+
 var tokenImplementors = []string{"Token"}
 
 func (ec *executionContext) _Token(ctx context.Context, sel ast.SelectionSet, obj *Token) graphql.Marshaler {
@@ -2841,6 +3123,11 @@ func (ec *executionContext) _User(ctx context.Context, sel ast.SelectionSet, obj
 			out.Values[i] = ec._User_dropboxEmail(ctx, field, obj)
 		case "dropboxAvatar":
 			out.Values[i] = ec._User_dropboxAvatar(ctx, field, obj)
+		case "connectedStorageProviders":
+			out.Values[i] = ec._User_connectedStorageProviders(ctx, field, obj)
+			if out.Values[i] == graphql.Null {
+				invalids++
+			}
 		default:
 			panic("unknown field " + strconv.Quote(field.Name))
 		}
@@ -3125,6 +3412,57 @@ func (ec *executionContext) marshalNInt2int(ctx context.Context, sel ast.Selecti
 	return res
 }
 
+func (ec *executionContext) marshalNStorageProvider2githubᚗcomᚋbccfilkomᚋdrophereᚑgoᚐStorageProvider(ctx context.Context, sel ast.SelectionSet, v StorageProvider) graphql.Marshaler {
+	return ec._StorageProvider(ctx, sel, &v)
+}
+
+func (ec *executionContext) marshalNStorageProvider2ᚕᚖgithubᚗcomᚋbccfilkomᚋdrophereᚑgoᚐStorageProvider(ctx context.Context, sel ast.SelectionSet, v []*StorageProvider) graphql.Marshaler {
+	ret := make(graphql.Array, len(v))
+	var wg sync.WaitGroup
+	isLen1 := len(v) == 1
+	if !isLen1 {
+		wg.Add(len(v))
+	}
+	for i := range v {
+		i := i
+		rctx := &graphql.ResolverContext{
+			Index:  &i,
+			Result: &v[i],
+		}
+		ctx := graphql.WithResolverContext(ctx, rctx)
+		f := func(i int) {
+			defer func() {
+				if r := recover(); r != nil {
+					ec.Error(ctx, ec.Recover(ctx, r))
+					ret = nil
+				}
+			}()
+			if !isLen1 {
+				defer wg.Done()
+			}
+			ret[i] = ec.marshalNStorageProvider2ᚖgithubᚗcomᚋbccfilkomᚋdrophereᚑgoᚐStorageProvider(ctx, sel, v[i])
+		}
+		if isLen1 {
+			f(i)
+		} else {
+			go f(i)
+		}
+
+	}
+	wg.Wait()
+	return ret
+}
+
+func (ec *executionContext) marshalNStorageProvider2ᚖgithubᚗcomᚋbccfilkomᚋdrophereᚑgoᚐStorageProvider(ctx context.Context, sel ast.SelectionSet, v *StorageProvider) graphql.Marshaler {
+	if v == nil {
+		if !ec.HasError(graphql.GetResolverContext(ctx)) {
+			ec.Errorf(ctx, "must not be null")
+		}
+		return graphql.Null
+	}
+	return ec._StorageProvider(ctx, sel, v)
+}
+
 func (ec *executionContext) unmarshalNString2string(ctx context.Context, v interface{}) (string, error) {
 	return graphql.UnmarshalString(v)
 }
@@ -3388,6 +3726,29 @@ func (ec *executionContext) marshalOBoolean2ᚖbool(ctx context.Context, sel ast
 	return ec.marshalOBoolean2bool(ctx, sel, *v)
 }
 
+func (ec *executionContext) unmarshalOInt2int(ctx context.Context, v interface{}) (int, error) {
+	return graphql.UnmarshalInt(v)
+}
+
+func (ec *executionContext) marshalOInt2int(ctx context.Context, sel ast.SelectionSet, v int) graphql.Marshaler {
+	return graphql.MarshalInt(v)
+}
+
+func (ec *executionContext) unmarshalOInt2ᚖint(ctx context.Context, v interface{}) (*int, error) {
+	if v == nil {
+		return nil, nil
+	}
+	res, err := ec.unmarshalOInt2int(ctx, v)
+	return &res, err
+}
+
+func (ec *executionContext) marshalOInt2ᚖint(ctx context.Context, sel ast.SelectionSet, v *int) graphql.Marshaler {
+	if v == nil {
+		return graphql.Null
+	}
+	return ec.marshalOInt2int(ctx, sel, *v)
+}
+
 func (ec *executionContext) marshalOLink2githubᚗcomᚋbccfilkomᚋdrophereᚑgoᚐLink(ctx context.Context, sel ast.SelectionSet, v Link) graphql.Marshaler {
 	return ec._Link(ctx, sel, &v)
 }
@@ -3448,6 +3809,17 @@ func (ec *executionContext) marshalOMessage2ᚖgithubᚗcomᚋbccfilkomᚋdrophe
 		return graphql.Null
 	}
 	return ec._Message(ctx, sel, v)
+}
+
+func (ec *executionContext) marshalOStorageProvider2githubᚗcomᚋbccfilkomᚋdrophereᚑgoᚐStorageProvider(ctx context.Context, sel ast.SelectionSet, v StorageProvider) graphql.Marshaler {
+	return ec._StorageProvider(ctx, sel, &v)
+}
+
+func (ec *executionContext) marshalOStorageProvider2ᚖgithubᚗcomᚋbccfilkomᚋdrophereᚑgoᚐStorageProvider(ctx context.Context, sel ast.SelectionSet, v *StorageProvider) graphql.Marshaler {
+	if v == nil {
+		return graphql.Null
+	}
+	return ec._StorageProvider(ctx, sel, v)
 }
 
 func (ec *executionContext) unmarshalOString2string(ctx context.Context, v interface{}) (string, error) {

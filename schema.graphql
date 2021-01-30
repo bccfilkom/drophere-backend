@@ -1,5 +1,12 @@
 scalar Time
 
+type StorageProvider {
+  id: Int!
+  providerId: Int!
+  email: String!
+  photo: String!
+}
+
 type User {
   id: Int!
   email: String!
@@ -7,6 +14,7 @@ type User {
   dropboxAuthorized: Boolean!
   dropboxEmail: String
   dropboxAvatar: String
+  connectedStorageProviders: [StorageProvider!]!
 }
 type Token {
   loginToken: String!
@@ -19,6 +27,8 @@ type Link {
   slug: String
   description: String
   deadline: Time
+  storageProvider: StorageProvider
+  ## storageProvider is null if the link is not connected to any storage provider
 }
 type Message {
   message: String!
@@ -26,6 +36,7 @@ type Message {
 
 # the schema allows the following query:
 type Query {
+  ## TODO: change links type below to [Link!]!
   links: [Link]
   me: User
   link(slug: String!): Link 
@@ -38,10 +49,10 @@ type Mutation {
   recoverPassword(email: String!, recoverToken: String!, newPassword: String!): Token
   updatePassword(oldPassword: String!, newPassword: String!): Message
   updateProfile(newName: String!): Message
-  connectStorageProvider(providerKey: Int!, providerToken: String!): Message
-  disconnectStorageProvider(providerKey: Int!): Message
-  createLink(title:  String!,slug: String!, description: String, deadline: Time, password: String): Link
-  updateLink(linkId: Int!, title:  String!, slug: String!, description: String, deadline: Time, password: String): Message
+  connectStorageProvider(providerId: Int!, providerToken: String!): Message
+  disconnectStorageProvider(providerId: Int!): Message
+  createLink(title:  String!, slug: String!, description: String, deadline: Time, password: String, providerId: Int): Link
+  updateLink(linkId: Int!, title:  String!, slug: String!, description: String, deadline: Time, password: String, providerId: Int): Link
   deleteLink(linkId: Int!): Message
   checkLinkPassword(linkId: Int!, password: String!): Message
 }

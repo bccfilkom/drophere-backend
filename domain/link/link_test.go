@@ -9,6 +9,8 @@ import (
 	"github.com/bccfilkom/drophere-go/domain/link"
 	"github.com/bccfilkom/drophere-go/infrastructure/database/inmemory"
 	"github.com/bccfilkom/drophere-go/infrastructure/hasher"
+
+	"github.com/stretchr/testify/assert"
 )
 
 var dummyHasher domain.Hasher
@@ -17,9 +19,9 @@ func init() {
 	dummyHasher = hasher.NewNotAHasher()
 }
 
-func newRepo() (domain.LinkRepository, domain.UserRepository) {
+func newRepo() (domain.LinkRepository, domain.UserRepository, domain.UserStorageCredentialRepository) {
 	memdb := inmemory.New()
-	return inmemory.NewLinkRepository(memdb), inmemory.NewUserRepository(memdb)
+	return inmemory.NewLinkRepository(memdb), inmemory.NewUserRepository(memdb), inmemory.NewUserStorageCredentialRepository(memdb)
 }
 
 func str2ptr(s string) *string {
@@ -30,6 +32,10 @@ func time2ptr(t time.Time) *time.Time {
 	return &t
 }
 
+func uint2ptr(u uint) *uint {
+	return &u
+}
+
 func TestCheckLinkPassword(t *testing.T) {
 	type test struct {
 		link       *domain.Link
@@ -37,7 +43,7 @@ func TestCheckLinkPassword(t *testing.T) {
 		wantResult bool
 	}
 
-	linkRepo, _ := newRepo()
+	linkRepo, _, uscRepo := newRepo()
 	getLink := func(id uint) *domain.Link {
 		l, _ := linkRepo.FindByID(id)
 		return l
@@ -59,18 +65,18 @@ func TestCheckLinkPassword(t *testing.T) {
 			wantResult: true,
 		},
 		{
-			link:       getLink(100),
+			link:       getLink(2),
 			password:   "123098",
 			wantResult: true,
 		},
 		{
-			link:       getLink(100),
+			link:       getLink(2),
 			password:   "",
 			wantResult: true,
 		},
 	}
 
-	linkSvc := link.NewService(linkRepo, dummyHasher)
+	linkSvc := link.NewService(linkRepo, uscRepo, dummyHasher)
 
 	for i, tc := range tests {
 		gotResult := linkSvc.CheckLinkPassword(tc.link, tc.password)
@@ -86,13 +92,19 @@ func TestCreateLink(t *testing.T) {
 		title       string
 		slug        string
 		description string
+		deadline    *time.Time
+		password    *string
 		user        *domain.User
+		providerID  *uint
 		wantLink    *domain.Link
 		wantErr     error
 	}
 
-	linkRepo, userRepo := newRepo()
+	linkRepo, userRepo, uscRepo := newRepo()
 	user, _ := userRepo.FindByID(1)
+	uscUser1, _ := uscRepo.FindByID(2000, false)
+
+	linkDeadline := time.Date(2020, time.November, 11, 1, 2, 3, 0, time.UTC)
 
 	tests := []test{
 		{
@@ -107,17 +119,71 @@ func TestCreateLink(t *testing.T) {
 			slug:        "yoursummerintern",
 			description: "Drop your CV for summer internship",
 			user:        user,
-			wantErr:     nil,
+			wantLink: &domain.Link{
+				ID:          4,
+				UserID:      user.ID,
+				Title:       "Drop CV",
+				Slug:        "yoursummerintern",
+				Description: "Drop your CV for summer internship",
+			},
+			wantErr: nil,
+		},
+		{
+			title:       "Link with associated storage provider",
+			slug:        "linktomockbox",
+			description: "hello there, please upload a file",
+			user:        user,
+			providerID:  uint2ptr(1234),
+			wantErr:     domain.ErrUserStorageCredentialNotFound,
+		},
+		{
+			title:       "Link with associated storage provider",
+			slug:        "linktomockbox",
+			description: "hello there, please upload a file",
+			user:        user,
+			providerID:  uint2ptr(1),
+			wantLink: &domain.Link{
+				ID:                      5,
+				UserID:                  user.ID,
+				Title:                   "Link with associated storage provider",
+				Slug:                    "linktomockbox",
+				Description:             "hello there, please upload a file",
+				Password:                "",
+				UserStorageCredentialID: uint2ptr(2000),
+				UserStorageCredential:   &uscUser1,
+			},
+			wantErr: nil,
+		},
+		{
+			title:       "Link with associated storage provider",
+			slug:        "guarded-with-pwd-and-deadline",
+			description: "hello there, please upload a file",
+			deadline:    &linkDeadline,
+			password:    str2ptr("abcdef"),
+			user:        user,
+			providerID:  uint2ptr(1),
+			wantLink: &domain.Link{
+				ID:                      6,
+				UserID:                  user.ID,
+				Title:                   "Link with associated storage provider",
+				Slug:                    "guarded-with-pwd-and-deadline",
+				Description:             "hello there, please upload a file",
+				Deadline:                &linkDeadline,
+				Password:                "abcdef",
+				UserStorageCredentialID: uint2ptr(2000),
+				UserStorageCredential:   &uscUser1,
+			},
+			wantErr: nil,
 		},
 	}
 
-	linkSvc := link.NewService(linkRepo, dummyHasher)
+	linkSvc := link.NewService(linkRepo, uscRepo, dummyHasher)
 
-	for i, tc := range tests {
-		_, gotErr := linkSvc.CreateLink(tc.title, tc.slug, tc.description, tc.user)
-		if gotErr != tc.wantErr {
-			t.Fatalf("test %d: expected: %v, got: %v", i, tc.wantErr, gotErr)
-		}
+	for _, tc := range tests {
+		gotLink, gotErr := linkSvc.CreateLink(tc.title, tc.slug, tc.description, tc.deadline, tc.password, tc.user, tc.providerID)
+
+		assert.Equal(t, tc.wantErr, gotErr)
+		assert.Equal(t, tc.wantLink, gotLink)
 	}
 
 }
@@ -130,12 +196,14 @@ func TestUpdateLink(t *testing.T) {
 		description *string
 		deadline    *time.Time
 		password    *string
+		providerID  *uint
 		wantLink    *domain.Link
 		wantErr     error
 	}
 
-	linkRepo, userRepo := newRepo()
+	linkRepo, userRepo, uscRepo := newRepo()
 	user, _ := userRepo.FindByID(1)
+	uscUser1, _ := uscRepo.FindByID(2000, false)
 
 	tests := []test{
 		{
@@ -145,7 +213,7 @@ func TestUpdateLink(t *testing.T) {
 			wantErr: domain.ErrLinkNotFound,
 		},
 		{
-			linkID:  100,
+			linkID:  2,
 			title:   "Drop file here",
 			slug:    "drop-here",
 			wantErr: domain.ErrLinkDuplicatedSlug,
@@ -169,19 +237,47 @@ func TestUpdateLink(t *testing.T) {
 				User:        user,
 			},
 		},
+		{
+			linkID:      1,
+			title:       "Drop CV 2",
+			slug:        "yoursummerintern2",
+			description: str2ptr("Drop your CV for summer internship 2019"),
+			deadline:    time2ptr(time.Date(2019, 1, 2, 3, 0, 0, 0, time.Local)),
+			password:    str2ptr("123098"),
+			providerID:  uint2ptr(1234),
+			wantErr:     domain.ErrUserStorageCredentialNotFound,
+		},
+		{
+			linkID:      1,
+			title:       "Drop CV 2 With MockBox",
+			slug:        "yoursummerintern2mockbox",
+			description: str2ptr("Drop your CV for summer internship 2019"),
+			deadline:    time2ptr(time.Date(2019, 1, 2, 3, 0, 0, 0, time.Local)),
+			password:    str2ptr("123098"),
+			providerID:  uint2ptr(1),
+			wantErr:     nil,
+			wantLink: &domain.Link{
+				ID:                      1,
+				Title:                   "Drop CV 2 With MockBox",
+				Slug:                    "yoursummerintern2mockbox",
+				Description:             "Drop your CV for summer internship 2019",
+				Deadline:                time2ptr(time.Date(2019, 1, 2, 3, 0, 0, 0, time.Local)),
+				Password:                "123098",
+				UserID:                  user.ID,
+				User:                    user,
+				UserStorageCredentialID: uint2ptr(uscUser1.ID),
+				UserStorageCredential:   &uscUser1,
+			},
+		},
 	}
 
-	linkSvc := link.NewService(linkRepo, dummyHasher)
+	linkSvc := link.NewService(linkRepo, uscRepo, dummyHasher)
 
-	for i, tc := range tests {
-		gotLink, gotErr := linkSvc.UpdateLink(tc.linkID, tc.title, tc.slug, tc.description, tc.deadline, tc.password)
-		if gotErr != tc.wantErr {
-			t.Fatalf("test %d: expected: %v, got: %v", i, tc.wantErr, gotErr)
-		}
+	for _, tc := range tests {
+		gotLink, gotErr := linkSvc.UpdateLink(tc.linkID, tc.title, tc.slug, tc.description, tc.deadline, tc.password, tc.providerID)
 
-		if !reflect.DeepEqual(gotLink, tc.wantLink) {
-			t.Fatalf("test %d: expected: %v, got: %v", i, tc.wantLink, gotLink)
-		}
+		assert.Equal(t, tc.wantErr, gotErr)
+		assert.Equal(t, tc.wantLink, gotLink)
 	}
 
 }
@@ -192,7 +288,7 @@ func TestDeleteLink(t *testing.T) {
 		wantErr error
 	}
 
-	linkRepo, _ := newRepo()
+	linkRepo, _, uscRepo := newRepo()
 
 	tests := []test{
 		{
@@ -205,7 +301,7 @@ func TestDeleteLink(t *testing.T) {
 		},
 	}
 
-	linkSvc := link.NewService(linkRepo, dummyHasher)
+	linkSvc := link.NewService(linkRepo, uscRepo, dummyHasher)
 
 	for i, tc := range tests {
 		gotErr := linkSvc.DeleteLink(tc.linkID)
@@ -223,7 +319,7 @@ func TestFetchLink(t *testing.T) {
 		wantLink *domain.Link
 	}
 
-	linkRepo, userRepo := newRepo()
+	linkRepo, userRepo, uscRepo := newRepo()
 
 	user, _ := userRepo.FindByID(1)
 
@@ -247,7 +343,7 @@ func TestFetchLink(t *testing.T) {
 		},
 	}
 
-	linkSvc := link.NewService(linkRepo, dummyHasher)
+	linkSvc := link.NewService(linkRepo, uscRepo, dummyHasher)
 
 	for i, tc := range tests {
 		gotLink, gotErr := linkSvc.FetchLink(tc.linkID)
@@ -269,7 +365,7 @@ func TestFindLinkBySlug(t *testing.T) {
 		wantLink *domain.Link
 	}
 
-	linkRepo, userRepo := newRepo()
+	linkRepo, userRepo, uscRepo := newRepo()
 
 	user, _ := userRepo.FindByID(1)
 
@@ -293,7 +389,7 @@ func TestFindLinkBySlug(t *testing.T) {
 		},
 	}
 
-	linkSvc := link.NewService(linkRepo, dummyHasher)
+	linkSvc := link.NewService(linkRepo, uscRepo, dummyHasher)
 
 	for i, tc := range tests {
 		gotLink, gotErr := linkSvc.FindLinkBySlug(tc.slug)
@@ -315,7 +411,7 @@ func TestListLinks(t *testing.T) {
 		wantLinks []domain.Link
 	}
 
-	linkRepo, userRepo := newRepo()
+	linkRepo, userRepo, uscRepo := newRepo()
 
 	user, _ := userRepo.FindByID(1)
 
@@ -339,7 +435,7 @@ func TestListLinks(t *testing.T) {
 					Description: "drop a file here",
 				},
 				{
-					ID:          100,
+					ID:          2,
 					UserID:      user.ID,
 					User:        user,
 					Title:       "Test Link 2",
@@ -351,17 +447,14 @@ func TestListLinks(t *testing.T) {
 		},
 	}
 
-	linkSvc := link.NewService(linkRepo, dummyHasher)
+	linkSvc := link.NewService(linkRepo, uscRepo, dummyHasher)
 
-	for i, tc := range tests {
+	for _, tc := range tests {
 		gotLinks, gotErr := linkSvc.ListLinks(tc.userID)
-		if gotErr != tc.wantErr {
-			t.Fatalf("test %d: expected: %v, got: %v", i, tc.wantErr, gotErr)
-		}
 
-		if !reflect.DeepEqual(gotLinks, tc.wantLinks) {
-			t.Fatalf("test %d: expected: %v, got: %v", i, tc.wantLinks, gotLinks)
-		}
+		assert.Equal(t, tc.wantErr, gotErr)
+		assert.Equal(t, tc.wantLinks, gotLinks)
+
 	}
 
 }
