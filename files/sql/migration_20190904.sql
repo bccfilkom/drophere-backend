@@ -9,7 +9,7 @@ CREATE TABLE `user_storage_credentials` (
   UNIQUE KEY `user_provider_unique` (`user_id`, `provider_id`),
   KEY `usc_user_id_users_id_foreign` (`user_id`),
   CONSTRAINT `usc_user_id_users_id_foreign` FOREIGN KEY (`user_id`) REFERENCES `users` (`id`) ON DELETE CASCADE ON UPDATE CASCADE
-) ENGINE=InnoDB DEFAULT CHARSET=utf8
+) ENGINE=InnoDB DEFAULT CHARSET=utf8;
 
 ALTER TABLE `links`
 ADD `user_storage_credential_id` int(10) unsigned NULL,
