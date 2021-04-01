@@ -1,0 +1,1 @@
+ALTER TABLE bcc_drophere.users ADD password varchar(80) NULL;
