@@ -6,7 +6,7 @@ CREATE TABLE `users` (
   `drive_token` varchar(255) DEFAULT NULL,
   PRIMARY KEY (`id`),
   UNIQUE KEY `email` (`email`)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
 
 CREATE TABLE `links` (
   `id` int unsigned NOT NULL AUTO_INCREMENT,
@@ -20,4 +20,4 @@ CREATE TABLE `links` (
   UNIQUE KEY `slug` (`slug`),
   KEY `links_user_id_users_id_foreign` (`user_id`),
   CONSTRAINT `links_user_id_users_id_foreign` FOREIGN KEY (`user_id`) REFERENCES `users` (`id`) ON DELETE CASCADE ON UPDATE CASCADE
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
