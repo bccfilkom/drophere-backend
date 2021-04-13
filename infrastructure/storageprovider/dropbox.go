@@ -2,13 +2,19 @@ package storageprovider
 
 import (
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io"
 	"io/ioutil"
 	"net/http"
+	"strings"
 	"time"
 
 	"github.com/bccfilkom/drophere-go/domain"
+)
+
+var (
+	errNotEnoughScope = errors.New("Not enough scope given from the Dropbox access token. Please grant the required scope 'files.content.write' and reset the access token")
 )
 
 const dropboxProviderID uint = 12345678
@@ -89,9 +95,17 @@ func (d *dropbox) Upload(cred domain.StorageProviderCredential, file io.Reader, 
 	}
 
 	// do the request
-	_, err = client.Do(req)
+	res, err := client.Do(req)
 	if err != nil {
 		return err
+	}
+
+	if res.StatusCode != 200 {
+		byteRes, _ := io.ReadAll(res.Body)
+		strRes := string(byteRes)
+		if strings.Contains(strRes, "files.content.write") {
+			return errNotEnoughScope
+		}
 	}
 
 	return nil
