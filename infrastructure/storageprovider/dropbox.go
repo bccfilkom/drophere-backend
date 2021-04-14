@@ -100,7 +100,7 @@ func (d *dropbox) Upload(cred domain.StorageProviderCredential, file io.Reader, 
 		return err
 	}
 
-	if res.StatusCode != 200 {
+	if res.StatusCode != http.StatusOK {
 		byteRes, _ := io.ReadAll(res.Body)
 		strRes := string(byteRes)
 		if strings.Contains(strRes, "files.content.write") {
