@@ -162,11 +162,11 @@ func (d *dropbox) mapToDropboxError(byteResponse *[]byte, httpStatusCode int) dr
 }
 
 func (d *dropbox) mapToRegularError(dropboxError *dropboxError) error {
-	if dropboxError.HttpCode == 400 {
+	if dropboxError.HttpCode == http.StatusBadRequest {
 		if strings.Contains(dropboxError.Message, "files.content.write") {
 			return errNotEnoughScope
 		}
-	} else if dropboxError.HttpCode == 401 {
+	} else if dropboxError.HttpCode == http.StatusUnauthorized {
 		if dropboxError.Json.ErrorStructured[".tag"].(string) == "missing_scope" && dropboxError.Json.ErrorStructured["required_scope"].(string) == "files.content.write" {
 			return errNotEnoughScope
 		}
