@@ -14,13 +14,25 @@ import (
 )
 
 var (
-	errNotEnoughScope = errors.New("Not enough scope given from the Dropbox access token. Please grant the required scope 'files.content.write' and reset the access token")
+	errNotEnoughScope = errors.New("Not enough scope given from the Dropbox access token. Please grant the required scope 'files.content.write' and reset the access token.")
 )
 
 const dropboxProviderID uint = 12345678
 
 type dropbox struct {
 	remoteDirectory string
+}
+
+type dropboxError struct {
+	HttpCode int
+	Message  string
+	Json     dropboxErrorJson
+}
+
+type dropboxErrorJson struct {
+	ErrorSummary    string                 `json:"error_summary"`
+	ErrorStructured map[string]interface{} `json:"error"`
+	UserMessage     string                 `json:"user_message"`
 }
 
 // NewDropboxStorageProvider returns new StorageProviderService
@@ -102,10 +114,10 @@ func (d *dropbox) Upload(cred domain.StorageProviderCredential, file io.Reader, 
 
 	if res.StatusCode != http.StatusOK {
 		byteRes, _ := io.ReadAll(res.Body)
-		strRes := string(byteRes)
-		if strings.Contains(strRes, "files.content.write") {
-			return errNotEnoughScope
-		}
+		dropboxError := d.mapToDropboxError(&byteRes, res.StatusCode)
+		regularError := d.mapToRegularError(&dropboxError)
+
+		return regularError
 	}
 
 	return nil
@@ -135,4 +147,30 @@ func (d *dropbox) prepareRequest(accessToken string, file io.Reader, fileName, s
 	req.Header.Set("Content-Type", "application/octet-stream")
 	req.Header.Set("Dropbox-API-Arg", dropboxAPIArg)
 	return req, nil
+}
+
+func (d *dropbox) mapToDropboxError(byteResponse *[]byte, httpStatusCode int) dropboxError {
+	strRes := string(*byteResponse)
+	errorRes := dropboxError{HttpCode: httpStatusCode}
+	errorRes.Message = strRes
+	if httpStatusCode == http.StatusUnauthorized {
+		errorRes.Json = dropboxErrorJson{}
+		json.Unmarshal(*byteResponse, &errorRes.Json)
+	}
+
+	return errorRes
+}
+
+func (d *dropbox) mapToRegularError(dropboxError *dropboxError) error {
+	if dropboxError.HttpCode == 400 {
+		if strings.Contains(dropboxError.Message, "files.content.write") {
+			return errNotEnoughScope
+		}
+	} else if dropboxError.HttpCode == 401 {
+		if dropboxError.Json.ErrorStructured[".tag"].(string) == "missing_scope" && dropboxError.Json.ErrorStructured["required_scope"].(string) == "files.content.write" {
+			return errNotEnoughScope
+		}
+	}
+
+	return errors.New("Unknown dropbox error.\n" + dropboxError.Message)
 }
