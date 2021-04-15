@@ -114,11 +114,7 @@ func (d *dropbox) Upload(cred domain.StorageProviderCredential, file io.Reader, 
 
 	if res.StatusCode != http.StatusOK {
 		dropboxError, err := d.mapToDropboxError(res.Body, res.StatusCode)
-		if err != nil {
-			return err
-		}
-
-		res.Body.Close()
+		defer res.Body.Close()
 		if err != nil {
 			return err
 		}
