@@ -113,9 +113,17 @@ func (d *dropbox) Upload(cred domain.StorageProviderCredential, file io.Reader, 
 	}
 
 	if res.StatusCode != http.StatusOK {
-		byteRes, _ := io.ReadAll(res.Body)
-		dropboxError := d.mapToDropboxError(&byteRes, res.StatusCode)
-		regularError := d.mapToRegularError(&dropboxError)
+		dropboxError, err := d.mapToDropboxError(res.Body, res.StatusCode)
+		if err != nil {
+			return err
+		}
+
+		res.Body.Close()
+		if err != nil {
+			return err
+		}
+
+		regularError := d.mapToRegularError(dropboxError)
 
 		return regularError
 	}
@@ -149,19 +157,22 @@ func (d *dropbox) prepareRequest(accessToken string, file io.Reader, fileName, s
 	return req, nil
 }
 
-func (d *dropbox) mapToDropboxError(byteResponse *[]byte, httpStatusCode int) dropboxError {
-	strRes := string(*byteResponse)
+func (d *dropbox) mapToDropboxError(responseReader io.Reader, httpStatusCode int) (dropboxError, error) {
+	byteResponse, err := io.ReadAll(responseReader)
+	if err != nil {
+		return dropboxError{}, err
+	}
 	errorRes := dropboxError{HttpCode: httpStatusCode}
-	errorRes.Message = strRes
+	errorRes.Message = string(byteResponse)
 	if httpStatusCode == http.StatusUnauthorized {
 		errorRes.Json = dropboxErrorJson{}
-		json.Unmarshal(*byteResponse, &errorRes.Json)
+		json.Unmarshal(byteResponse, &errorRes.Json)
 	}
 
-	return errorRes
+	return errorRes, nil
 }
 
-func (d *dropbox) mapToRegularError(dropboxError *dropboxError) error {
+func (d *dropbox) mapToRegularError(dropboxError dropboxError) error {
 	if dropboxError.HttpCode == http.StatusBadRequest {
 		if strings.Contains(dropboxError.Message, "files.content.write") {
 			return errNotEnoughScope
